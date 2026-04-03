@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Yahtzee Scorecard</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #1a3a1a; font-family: 'Nunito', sans-serif; }
+  .score-btn {
+    border: 1px solid rgba(181,144,58,0.4);
+    background: transparent;
+    color: #2d1a00;
+    padding: 7px 4px;
+    cursor: pointer;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 3px;
+    transition: all 0.15s;
+    text-align: center;
+    width: 100%;
+  }
+  .score-btn:hover { background: #2d5a2d; color: #f5e9c8; border-color: #2d5a2d; }
+  .score-btn.selected { background: #2d5a2d; color: #f5e9c8; border-color: #2d5a2d; }
+  .score-btn.scratch { color: #c0392b; border-color: rgba(192,57,43,0.4); }
+  .score-btn.scratch:hover { background: #c0392b; color: white; border-color: #c0392b; }
+  .score-btn.scratch.selected { background: #c0392b; color: white; border-color: #c0392b; }
+  .popup-overlay {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,0.45);
+    display: flex; align-items: center; justify-content: center;
+    padding: 1rem;
+  }
+  .popup-box {
+    background: #fffdf5;
+    border-radius: 10px;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.55);
+    padding: 1.3rem;
+    width: 100%;
+    max-width: 300px;
+  }
+  .popup-title {
+    font-size: 1.05rem; font-weight: 900; color: #2d1a00;
+    margin-bottom: 0.2rem; letter-spacing: 0.05em;
+  }
+  .popup-desc { font-size: 0.68rem; color: #7a5c2a; margin-bottom: 1rem; }
+  .popup-grid {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 0.8rem;
+  }
+  .popup-cancel {
+    width: 100%; padding: 0.45rem;
+    background: transparent; border: 1px solid rgba(181,144,58,0.35);
+    color: #9a7a4a; font-family: 'Nunito', sans-serif;
+    font-size: 0.72rem; cursor: pointer; border-radius: 3px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .cell-display {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.9rem; font-weight: 700;
+    transition: background 0.12s;
+    user-select: none;
+    min-height: 38px;
+  }
+  .cell-display:hover { background: rgba(181,144,58,0.13); }
+  .cell-display.scored { color: #2d1a00; }
+  .cell-display.scratched { color: #c0392b; font-size: 1.05rem; }
+  .cell-display.empty { color: #ccc; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useCallback, useEffect, useRef } = React;
+
+function getOptions(key) {
+  switch(key) {
+    case "ones":        return [0,1,2,3,4,5];
+    case "twos":        return [0,2,4,6,8,10];
+    case "threes":      return [0,3,6,9,12,15];
+    case "fours":       return [0,4,8,12,16,20];
+    case "fives":       return [0,5,10,15,20,25];
+    case "sixes":       return [0,6,12,18,24,30];
+    case "threeOfKind": return [0,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30];
+    case "fourOfKind":  return [0,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30];
+    case "fullHouse":   return [0,25];
+    case "smStraight":  return [0,30];
+    case "lgStraight":  return [0,40];
+    case "yahtzee":     return [0,50];
+    case "chance":      return [0,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30];
+    case "yahtzeBonus": return [0,50,100,150,200,250,300];
+    default:            return [];
+  }
+}
+
+function getGridCols(key) {
+  // Fixed-value categories need fewer columns
+  if (["fullHouse","smStraight","lgStraight","yahtzee"].includes(key)) return "1fr 1fr";
+  if (["yahtzeBonus"].includes(key)) return "repeat(4, 1fr)";
+  // Upper section: exactly 6 options
+  if (["ones","twos","threes","fours","fives","sixes"].includes(key)) return "repeat(6, 1fr)";
+  // Variable: many options, show in rows of 6
+  return "repeat(6, 1fr)";
+}
+
+const UPPER = [
+  { key:"ones",   label:"Aces",   desc:"Count & add only 1s — max 5"  },
+  { key:"twos",   label:"Twos",   desc:"Count & add only 2s — max 10" },
+  { key:"threes", label:"Threes", desc:"Count & add only 3s — max 15" },
+  { key:"fours",  label:"Fours",  desc:"Count & add only 4s — max 20" },
+  { key:"fives",  label:"Fives",  desc:"Count & add only 5s — max 25" },
+  { key:"sixes",  label:"Sixes",  desc:"Count & add only 6s — max 30" },
+];
+
+const LOWER = [
+  { key:"threeOfKind", label:"3 of a Kind",   desc:"At least 3 alike — add all 5 dice" },
+  { key:"fourOfKind",  label:"4 of a Kind",   desc:"At least 4 alike — add all 5 dice" },
+  { key:"fullHouse",   label:"Full House",    desc:"3 of one + 2 of another — scores 25" },
+  { key:"smStraight",  label:"Sm. Straight",  desc:"4 sequential dice — scores 30"       },
+  { key:"lgStraight",  label:"Lg. Straight",  desc:"5 sequential dice — scores 40"       },
+  { key:"yahtzee",     label:"YAHTZEE",       desc:"5 of a kind — scores 50"             },
+  { key:"chance",      label:"Chance",        desc:"Any roll — add all 5 dice"           },
+  { key:"yahtzeBonus", label:"Yahtzee Bonus", desc:"Extra Yahtzee — 100 pts each"        },
+];
+
+const BONUS_THRESHOLD = 63;
+const BONUS_SCORE = 35;
+
+function emptyScores() {
+  const s = {};
+  [...UPPER,...LOWER].forEach(c => s[c.key]=null);
+  return s;
+}
+
+function calcUpper(s) { return UPPER.reduce((a,c)=>a+(s[c.key]??0),0); }
+function calcLower(s) { return LOWER.reduce((a,c)=>a+(s[c.key]??0),0); }
+function calcBonus(s) { return calcUpper(s)>=BONUS_THRESHOLD ? BONUS_SCORE : 0; }
+function calcGrand(s) { return calcUpper(s)+calcBonus(s)+calcLower(s); }
+
+function ScorePopup({ cat, currentVal, onSelect, onClose }) {
+  const options = getOptions(cat.key);
+  const ref = useRef();
+
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    setTimeout(() => document.addEventListener("mousedown", h), 0);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  return (
+    <div className="popup-overlay">
+      <div className="popup-box" ref={ref}>
+        <div className="popup-title">{cat.label}</div>
+        <div className="popup-desc">{cat.desc}</div>
+        <div className="popup-grid" style={{gridTemplateColumns: getGridCols(cat.key)}}>
+          {options.map(opt => (
+            <button
+              key={opt}
+              className={["score-btn", opt===0?"scratch":"", currentVal===opt?"selected":""].join(" ")}
+              onClick={() => { onSelect(opt); onClose(); }}
+            >
+              {opt===0 ? "✕" : opt}
+            </button>
+          ))}
+        </div>
+        {currentVal !== null && (
+          <button className="score-btn" style={{marginBottom:"0.5rem", color:"#aaa", fontSize:"0.72rem", borderColor:"rgba(0,0,0,0.1)"}}
+            onClick={() => { onSelect(null); onClose(); }}>
+            Clear score
+          </button>
+        )}
+        <button className="popup-cancel" onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function ScoreCell({ cat, value, onCommit }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <div
+        className={`cell-display ${value===null?"empty":value===0?"scratched":"scored"}`}
+        onClick={() => setOpen(true)}
+        title="Tap to score"
+      >
+        {value===null ? "—" : value===0 ? "✕" : value}
+      </div>
+      {open && (
+        <ScorePopup cat={cat} currentVal={value}
+          onSelect={onCommit} onClose={() => setOpen(false)} />
+      )}
+    </>
+  );
+}
+
+function App() {
+  const [players, setPlayers] = useState([
+    {name:"Player 1", scores:emptyScores()},
+    {name:"Player 2", scores:emptyScores()},
+    {name:"Player 3", scores:emptyScores()},
+    {name:"Player 4", scores:emptyScores()},
+    {name:"Player 5", scores:emptyScores()},
+    {name:"Player 6", scores:emptyScores()},
+  ]);
+  const [editingName, setEditingName] = useState(null);
+  const [nameDraft, setNameDraft] = useState("");
+
+  const setScore = useCallback((pi,key,val) => {
+    setPlayers(prev => prev.map((p,i) => i!==pi ? p : {...p, scores:{...p.scores,[key]:val}}));
+  },[]);
+
+  const removePlayer = (pi) => {
+    if (players.length<=1) return;
+    setPlayers(prev => prev.filter((_,i)=>i!==pi));
+  };
+  const addPlayer = () => {
+    if (players.length>=6) return;
+    setPlayers(prev => [...prev, {name:`Player ${prev.length+1}`, scores:emptyScores()}]);
+  };
+  const commitName = (pi) => {
+    const t = nameDraft.trim();
+    if (t) setPlayers(prev => prev.map((p,i) => i!==pi?p:{...p,name:t}));
+    setEditingName(null);
+  };
+  const resetAll = () => {
+    if (!window.confirm("Reset all scores?")) return;
+    setPlayers(prev => prev.map(p => ({...p,scores:emptyScores()})));
+  };
+
+  const colW = `${Math.max(68,Math.min(110,Math.floor(540/players.length)))}px`;
+  const sh = {background:"#2d5a2d",color:"#f5e9c8",fontSize:"0.58rem",
+    letterSpacing:"0.18em",textTransform:"uppercase",padding:"0.38rem 0.65rem",fontWeight:700};
+  const sc = {height:"38px",textAlign:"center",borderRight:"1px solid rgba(181,144,58,0.2)",padding:0,width:colW};
+  const stv = {textAlign:"center",fontSize:"0.88rem",fontWeight:700,color:"#2d1a00",width:colW,padding:"0.35rem 0"};
+
+  return (
+    <div style={{minHeight:"100vh",background:"#1a3a1a",
+      backgroundImage:"radial-gradient(ellipse at 20% 20%,rgba(40,80,40,0.5) 0%,transparent 60%),radial-gradient(ellipse at 80% 80%,rgba(20,50,20,0.6) 0%,transparent 60%)",
+      display:"flex",flexDirection:"column",alignItems:"center",padding:"2rem 0.75rem 3rem"}}>
+
+      <div style={{textAlign:"center",marginBottom:"1.4rem"}}>
+        <div style={{fontSize:"clamp(1.8rem,6vw,3rem)",fontWeight:900,color:"#f5e9c8",
+          letterSpacing:"0.15em",textTransform:"uppercase",
+          textShadow:"0 2px 8px rgba(0,0,0,0.5),0 0 30px rgba(181,144,58,0.3)",marginBottom:"0.15rem"}}>
+          Yahtzee
+        </div>
+        <div style={{color:"#b5903a",fontSize:"0.75rem",letterSpacing:"0.3em",textTransform:"uppercase"}}>Score Card</div>
+      </div>
+
+      <div style={{display:"flex",gap:"0.6rem",marginBottom:"1.3rem",flexWrap:"wrap",justifyContent:"center"}}>
+        {players.length<6 && (
+          <button onClick={addPlayer} style={{padding:"0.4rem 1rem",border:"1px solid #b5903a",
+            background:"rgba(181,144,58,0.2)",color:"#f5e9c8",fontSize:"0.7rem",letterSpacing:"0.1em",
+            textTransform:"uppercase",cursor:"pointer",fontFamily:"'Nunito', sans-serif",borderRadius:"2px"}}>
+            + Add Player
+          </button>
+        )}
+        <button onClick={resetAll} style={{padding:"0.4rem 1rem",border:"1px solid rgba(181,144,58,0.4)",
+          background:"transparent",color:"rgba(245,233,200,0.55)",fontSize:"0.7rem",letterSpacing:"0.1em",
+          textTransform:"uppercase",cursor:"pointer",fontFamily:"'Nunito', sans-serif",borderRadius:"2px"}}>
+          Reset All
+        </button>
+      </div>
+
+      <div style={{background:"rgba(245,233,200,0.97)",borderRadius:"4px",overflow:"hidden",
+        width:"100%",maxWidth:"860px",boxShadow:"0 8px 40px rgba(0,0,0,0.5),0 0 0 1px rgba(181,144,58,0.3)"}}>
+        <table style={{width:"100%",borderCollapse:"collapse"}}>
+          <thead style={{position:'sticky',top:0,zIndex:10}}>
+            <tr>
+              <th style={{...sh,width:"150px",minWidth:"120px",textAlign:"left"}}>Category</th>
+              {players.map((p,pi)=>(
+                <th key={pi} style={{...sh,textAlign:"center",padding:"0.45rem 0.2rem",
+                  fontSize:"0.75rem",width:colW,position:"relative",cursor:"pointer",fontWeight:700}}>
+                  {editingName===pi ? (
+                    <input autoFocus value={nameDraft}
+                      onChange={e=>setNameDraft(e.target.value)}
+                      onBlur={()=>commitName(pi)}
+                      onKeyDown={e=>{if(e.key==="Enter")commitName(pi);if(e.key==="Escape")setEditingName(null);}}
+                      style={{background:"transparent",border:"none",borderBottom:"1px solid #f5e9c8",
+                        color:"#f5e9c8",width:"85%",textAlign:"center",
+                        fontFamily:"inherit",fontSize:"0.75rem",outline:"none"}}
+                    />
+                  ) : (
+                    <span style={{display:"block"}}
+                      onClick={()=>{setEditingName(pi);setNameDraft(p.name);}}>
+                      {p.name}
+                      {players.length>1 && (
+                        <span onClick={e=>{e.stopPropagation();removePlayer(pi);}}
+                          style={{position:"absolute",top:3,right:4,fontSize:"0.55rem",
+                            opacity:0.5,cursor:"pointer"}} title="Remove">✕</span>
+                      )}
+                    </span>
+                  )}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colSpan={players.length+1} style={sh}>Upper Section — score 63+ for +35 bonus</td></tr>
+            {UPPER.map((cat,ci)=>(
+              <tr key={cat.key} style={{background:ci%2===1?"rgba(181,144,58,0.06)":"transparent",
+                borderBottom:"1px solid rgba(181,144,58,0.2)"}}>
+                <td style={{padding:"0 0.6rem",height:"38px",borderRight:"2px solid rgba(181,144,58,0.3)"}}>
+                  <div style={{fontSize:"0.78rem",fontWeight:700,color:"#2d1a00"}}>{cat.label}</div>
+                  <div style={{fontSize:"0.58rem",color:"#7a5c2a"}}>{cat.desc}</div>
+                </td>
+                {players.map((p,pi)=>(
+                  <td key={pi} style={sc}>
+                    <ScoreCell cat={cat} value={p.scores[cat.key]} onCommit={v=>setScore(pi,cat.key,v)}/>
+                  </td>
+                ))}
+              </tr>
+            ))}
+
+            <tr style={{background:"rgba(181,144,58,0.12)",borderBottom:"1px solid rgba(181,144,58,0.3)"}}>
+              <td style={{padding:"0.38rem 0.6rem",fontSize:"0.7rem",fontWeight:700,color:"#5a3a00",
+                borderRight:"2px solid rgba(181,144,58,0.3)"}}>Upper Total</td>
+              {players.map((p,pi)=><td key={pi} style={stv}>{calcUpper(p.scores)}</td>)}
+            </tr>
+
+            <tr style={{background:"rgba(40,80,40,0.07)",borderBottom:"2px solid rgba(181,144,58,0.4)"}}>
+              <td style={{padding:"0 0.6rem",height:"36px",borderRight:"2px solid rgba(181,144,58,0.3)"}}>
+                <div style={{fontSize:"0.78rem",fontWeight:700,color:"#2d1a00"}}>Bonus +35</div>
+                <div style={{fontSize:"0.58rem",color:"#7a5c2a"}}>Upper total &ge; 63</div>
+              </td>
+              {players.map((p,pi)=>{
+                const upper=calcUpper(p.scores);
+                const bonus=calcBonus(p.scores);
+                const rem=Math.max(0,BONUS_THRESHOLD-upper);
+                return (
+                  <td key={pi} style={{...sc,fontWeight:700,
+                    color:bonus>0?"#2d5a2d":"#bbb"}}>
+                    {bonus>0
+                      ? <span style={{fontSize:"0.78rem",color:"#2d5a2d"}}>+35 ✓</span>
+                      : rem>0
+                        ? <span style={{fontSize:"0.62rem",color:"#bbb"}}>-{rem}</span>
+                        : "—"}
+                  </td>
+                );
+              })}
+            </tr>
+
+            <tr><td colSpan={players.length+1} style={{...sh,paddingTop:"0.45rem"}}>Lower Section</td></tr>
+            {LOWER.map((cat,ci)=>(
+              <tr key={cat.key} style={{background:ci%2===1?"rgba(181,144,58,0.06)":"transparent",
+                borderBottom:"1px solid rgba(181,144,58,0.2)"}}>
+                <td style={{padding:"0 0.6rem",height:"38px",borderRight:"2px solid rgba(181,144,58,0.3)"}}>
+                  <div style={{fontSize:"0.78rem",fontWeight:700,
+                    color:cat.key==="yahtzee"?"#2d5a2d":"#2d1a00"}}>{cat.label}</div>
+                  <div style={{fontSize:"0.58rem",color:"#7a5c2a"}}>{cat.desc}</div>
+                </td>
+                {players.map((p,pi)=>(
+                  <td key={pi} style={sc}>
+                    <ScoreCell cat={cat} value={p.scores[cat.key]} onCommit={v=>setScore(pi,cat.key,v)}/>
+                  </td>
+                ))}
+              </tr>
+            ))}
+
+            <tr style={{background:"rgba(181,144,58,0.12)",borderBottom:"2px solid rgba(181,144,58,0.4)"}}>
+              <td style={{padding:"0.38rem 0.6rem",fontSize:"0.7rem",fontWeight:700,color:"#5a3a00",
+                borderRight:"2px solid rgba(181,144,58,0.3)"}}>Lower Total</td>
+              {players.map((p,pi)=><td key={pi} style={stv}>{calcLower(p.scores)}</td>)}
+            </tr>
+
+            <tr style={{background:"#2d5a2d"}}>
+              <td style={{padding:"0.6rem 0.65rem",fontSize:"0.78rem",fontWeight:700,color:"#f5e9c8",
+                letterSpacing:"0.08em",textTransform:"uppercase"}}>Grand Total</td>
+              {(() => {
+                const grands = players.map(p => calcGrand(p.scores));
+                const maxVal = Math.max(...grands);
+                return players.map((p,pi) => {
+                  const isLeader = grands[pi] === maxVal;
+                  return (
+                    <td key={pi} style={{textAlign:"center", width:colW,
+                      background: isLeader ? "#b5903a" : "transparent",
+                      position:"relative"}}>
+                      {isLeader && <div style={{fontSize:"0.55rem",color:"#fff8e7",
+                        letterSpacing:"0.12em",textTransform:"uppercase",paddingTop:"0.3rem",
+                        opacity:0.9}}>&#9733; LEADER</div>}
+                      <div style={{fontSize:"1.1rem",fontWeight:900,color:"#f5e9c8",
+                        paddingBottom: isLeader?"0.3rem":"0",
+                        paddingTop: isLeader?"0":"0"}}>{grands[pi]}</div>
+                    </td>
+                  );
+                });
+              })()}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{marginTop:"0.9rem",color:"rgba(245,233,200,0.28)",fontSize:"0.65rem",
+        letterSpacing:"0.06em",textAlign:"center"}}>
+        Tap any cell to score &bull; ✕ = scratch / zero &bull; Tap name to rename
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
