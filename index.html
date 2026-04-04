@@ -1,414 +1,1874 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Yahtzee Scorecard</title>
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no"/>
+<title>Game Night</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #1a3a1a; font-family: 'Nunito', sans-serif; }
-  .score-btn {
-    border: 1px solid rgba(181,144,58,0.4);
-    background: transparent;
-    color: #2d1a00;
-    padding: 7px 4px;
-    cursor: pointer;
-    font-family: 'Nunito', sans-serif;
-    font-size: 0.85rem;
-    font-weight: 600;
-    border-radius: 3px;
-    transition: all 0.15s;
-    text-align: center;
-    width: 100%;
-  }
-  .score-btn:hover { background: #2d5a2d; color: #f5e9c8; border-color: #2d5a2d; }
-  .score-btn.selected { background: #2d5a2d; color: #f5e9c8; border-color: #2d5a2d; }
-  .score-btn.scratch { color: #c0392b; border-color: rgba(192,57,43,0.4); }
-  .score-btn.scratch:hover { background: #c0392b; color: white; border-color: #c0392b; }
-  .score-btn.scratch.selected { background: #c0392b; color: white; border-color: #c0392b; }
-  .popup-overlay {
-    position: fixed; inset: 0; z-index: 200;
-    background: rgba(0,0,0,0.45);
-    display: flex; align-items: center; justify-content: center;
-    padding: 1rem;
-  }
-  .popup-box {
-    background: #fffdf5;
-    border-radius: 10px;
-    box-shadow: 0 16px 48px rgba(0,0,0,0.55);
-    padding: 1.3rem;
-    width: 100%;
-    max-width: 300px;
-  }
-  .popup-title {
-    font-size: 1.05rem; font-weight: 900; color: #2d1a00;
-    margin-bottom: 0.2rem; letter-spacing: 0.05em;
-  }
-  .popup-desc { font-size: 0.68rem; color: #7a5c2a; margin-bottom: 1rem; }
-  .popup-grid {
-    display: grid;
-    gap: 6px;
-    margin-bottom: 0.8rem;
-  }
-  .popup-cancel {
-    width: 100%; padding: 0.45rem;
-    background: transparent; border: 1px solid rgba(181,144,58,0.35);
-    color: #9a7a4a; font-family: 'Nunito', sans-serif;
-    font-size: 0.72rem; cursor: pointer; border-radius: 3px;
-    letter-spacing: 0.1em; text-transform: uppercase;
-  }
-  .cell-display {
-    width: 100%; height: 100%;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer;
-    font-family: 'Nunito', sans-serif;
-    font-size: 0.9rem; font-weight: 700;
-    transition: background 0.12s;
-    user-select: none;
-    min-height: 38px;
-  }
-  .cell-display:hover { background: rgba(181,144,58,0.13); }
-  .cell-display.scored { color: #2d1a00; }
-  .cell-display.scratched { color: #c0392b; font-size: 1.05rem; }
-  .cell-display.empty { color: #ccc; }
+:root{--bg:#0f0f1a;--card:#1a1a2e;--card2:#16213e;--accent:#e94560;--gold:#f5a623;--green:#0f9b58;--blue:#4cc9f0;--purple:#7b2fff;--text:#f0f0f0;--muted:#777;--r:14px}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-height:100vh;overflow-x:hidden}
+#app{min-height:100vh}
+.screen{display:flex;flex-direction:column;align-items:center;padding:1.2rem 1rem 2.5rem;gap:.85rem;width:100%;min-height:100vh}
+.w500{width:100%;max-width:500px}
+.title{font-size:2.4rem;font-weight:900;text-align:center;letter-spacing:-.02em}
+.title-gn{background:linear-gradient(135deg,#7b2fff,#4cc9f0);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.title-y{background:linear-gradient(135deg,#0f9b58,#f5a623);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.title-s{background:linear-gradient(135deg,#e94560,#f5a623);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.muted{color:var(--muted);font-size:.82rem;text-align:center;font-weight:600}
+.badge{background:rgba(255,255,255,.07);border-radius:20px;padding:.25rem .8rem;font-size:.7rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
+.card{background:var(--card);border-radius:var(--r);padding:1.1rem;width:100%;max-width:500px;box-shadow:0 4px 24px rgba(0,0,0,.3)}
+.btn{display:block;width:100%;max-width:500px;padding:.85rem 1.5rem;border:none;border-radius:10px;cursor:pointer;font-family:'Nunito',sans-serif;font-size:1rem;font-weight:800;letter-spacing:.02em;transition:transform .1s,opacity .1s}
+.btn:active{transform:scale(.97);opacity:.9}
+.btn-purple{background:var(--purple);color:#fff}
+.btn-green{background:var(--green);color:#fff}
+.btn-red{background:var(--accent);color:#fff}
+.btn-gold{background:var(--gold);color:#1a0f00}
+.btn-ghost{background:rgba(255,255,255,.08);color:var(--text)}
+input{width:100%;padding:.75rem 1rem;border-radius:8px;border:2px solid rgba(255,255,255,.1);background:rgba(255,255,255,.06);color:var(--text);font-family:'Nunito',sans-serif;font-size:1rem;font-weight:700;outline:none;transition:border-color .2s}
+input:focus{border-color:var(--accent)}
+label{font-size:.7rem;color:var(--muted);font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem;display:block}
+.flash{color:var(--accent);font-size:.82rem;text-align:center;font-weight:700;min-height:1rem;transition:opacity .3s}
+.back-btn{align-self:flex-start;background:rgba(255,255,255,.07);border:none;border-radius:8px;padding:.4rem .85rem;color:var(--muted);font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:800;cursor:pointer}
+.game-tile{width:100%;max-width:500px;border-radius:16px;padding:1.3rem 1.3rem 1.3rem 1.3rem;cursor:pointer;transition:transform .15s;position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.08)}
+.game-tile:active{transform:scale(.98)}
+.tile-y{background:linear-gradient(135deg,#0a2e14,#1a3a00)}
+.tile-s{background:linear-gradient(135deg,#2e0a14,#1a002a)}
+.tile-fc{background:linear-gradient(135deg,#1a0a3a,#0a1a2e)}
+.tile-qk{background:linear-gradient(135deg,#0a2a3a,#001a2a)}
+.tile-fb{background:linear-gradient(135deg,#2a0a3a,#1a002a)}
+.tile-icon{font-size:2.2rem;margin-bottom:.35rem}
+.tile-name{font-size:1.35rem;font-weight:900;margin-bottom:.2rem}
+.tile-desc{font-size:.73rem;color:rgba(255,255,255,.5);font-weight:600;line-height:1.4}
+.tile-arrow{position:absolute;right:1.1rem;top:50%;transform:translateY(-50%);font-size:1.5rem;opacity:.4}
+.code-box{font-size:2.8rem;font-weight:900;letter-spacing:.25em;color:var(--gold);text-align:center;background:rgba(245,166,35,.1);border-radius:10px;padding:.4rem 1rem}
+.chip{display:inline-flex;align-items:center;gap:.35rem;background:rgba(255,255,255,.07);border-radius:20px;padding:.35rem .75rem;font-size:.82rem;font-weight:700;margin:.2rem}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0}
+/* YAHTZEE TABLE */
+.y-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;box-shadow:0 4px 24px rgba(0,0,0,.3)}
+.y-table{border-collapse:collapse;background:#fffdf5}
+.y-thead th{background:#1a3a1a;color:#f5e9c8;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem .4rem;font-weight:800;white-space:nowrap;position:sticky;top:0;z-index:5;text-align:center}
+.y-thead th.sticky-col{position:sticky;left:0;z-index:10;text-align:left;padding-left:.7rem;min-width:125px}
+.y-cat-td{position:sticky;left:0;background:#fffdf5;z-index:3;padding:0 .6rem 0 .7rem;height:38px;border-right:2px solid rgba(181,144,58,.3);min-width:125px}
+.y-score-td{height:38px;text-align:center;border-right:1px solid rgba(181,144,58,.2);padding:0;min-width:72px;max-width:90px}
+.y-sec-row td{background:#2d5a2d;color:#f5e9c8;font-size:.58rem;letter-spacing:.15em;text-transform:uppercase;padding:.35rem .6rem;font-weight:800}
+.y-sec-row td.sticky-col{position:sticky;left:0;z-index:3}
+.y-alt{background:rgba(181,144,58,.06)}
+.y-alt .y-cat-td{background:rgba(252,244,215,.5)}
+.y-sub td{background:rgba(181,144,58,.12)}
+.y-sub .y-cat-td{background:rgba(248,235,195,.8)}
+.y-bonus td{background:rgba(40,80,40,.08)}
+.y-bonus .y-cat-td{background:rgba(240,248,240,.8)}
+.y-grand td{background:#2d5a2d}
+.y-grand .y-cat-td{background:#2d5a2d;color:#f5e9c8}
+.y-cat-name{font-size:.78rem;font-weight:700;color:#2d1a00;white-space:nowrap}
+.y-cat-desc{font-size:.58rem;color:#7a5c2a}
+.y-grand-name{font-size:.75rem;font-weight:800;color:#f5e9c8;text-transform:uppercase;letter-spacing:.06em}
+.cell-tap{width:100%;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.88rem;font-weight:700;transition:background .12s;user-select:none}
+.cell-tap.can:hover{background:rgba(181,144,58,.18)}
+.cell-tap.ro{cursor:default}
+.cell-tap.scored{color:#2d1a00}
+.cell-tap.scratched{color:#c0392b}
+.cell-tap.empty{color:#bbb}
+.cell-tap.grand-val{font-size:1.05rem;font-weight:900;color:#f5e9c8;height:38px}
+.cell-tap.leader-col{background:#b5903a!important}
+.cell-tap.leader-col.grand-val{color:#fff!important}
+.leader-star{font-size:.55rem;display:block;color:#fff;text-align:center;margin-top:-6px;padding-bottom:2px}
+/* POPUP */
+.popup-ov{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:1rem}
+.popup-bx{background:#fffdf5;border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,.6);padding:1.2rem;width:100%;max-width:285px}
+.popup-ttl{font-size:1rem;font-weight:900;color:#2d1a00;margin-bottom:.15rem}
+.popup-dsc{font-size:.67rem;color:#7a5c2a;margin-bottom:.85rem}
+.popup-grid{display:grid;gap:5px;margin-bottom:.7rem}
+.p-btn{border:1px solid rgba(181,144,58,.4);background:transparent;color:#2d1a00;padding:7px 3px;cursor:pointer;font-family:'Nunito',sans-serif;font-size:.84rem;font-weight:700;border-radius:4px;transition:all .15s;text-align:center;width:100%}
+.p-btn:hover,.p-btn.sel{background:#2d5a2d;color:#f5e9c8;border-color:#2d5a2d}
+.p-btn.sc{color:#c0392b;border-color:rgba(192,57,43,.35)}
+.p-btn.sc:hover,.p-btn.sc.sel{background:#c0392b;color:#fff;border-color:#c0392b}
+.p-cancel{width:100%;padding:.4rem;background:transparent;border:1px solid rgba(181,144,58,.3);color:#9a7a4a;font-family:'Nunito',sans-serif;font-size:.72rem;cursor:pointer;border-radius:4px;letter-spacing:.08em;text-transform:uppercase;margin-top:.3rem}
+/* SCATTERGORIES */
+.timer{font-size:2rem;font-weight:900;color:var(--blue);font-variant-numeric:tabular-nums}
+.timer.urgent{color:var(--accent);animation:pulse .5s ease infinite alternate}
+@keyframes pulse{from{opacity:1}to{opacity:.4}}
+.letter-big{font-size:5.5rem;font-weight:900;line-height:1;text-align:center;background:linear-gradient(135deg,var(--accent),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:popIn .4s cubic-bezier(.175,.885,.32,1.275)}
+@keyframes popIn{from{transform:scale(0) rotate(-180deg);opacity:0}to{transform:scale(1) rotate(0);opacity:1}}
+.cat-row{display:flex;align-items:center;gap:.4rem;padding:.38rem 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.cat-row:last-child{border-bottom:none}
+.cat-num{font-size:.65rem;font-weight:900;color:var(--accent);width:1.2rem;flex-shrink:0}
+.cat-lbl{font-size:.75rem;font-weight:700;color:var(--muted);width:100px;flex-shrink:0;line-height:1.2}
+.cat-inp{flex:1;padding:.45rem .6rem;font-size:.88rem;border-radius:6px}
+.vote-row{display:flex;align-items:center;gap:.5rem;padding:.52rem 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.vote-row:last-child{border-bottom:none}
+.vote-left{flex:1;min-width:0}
+.vnm{font-size:.65rem;color:var(--muted);font-weight:700}
+.vans{font-size:.9rem;font-weight:800;word-break:break-word}
+.vbtn{border:none;border-radius:7px;padding:.42rem .58rem;cursor:pointer;font-size:.9rem;font-weight:800;transition:transform .1s,background .15s;background:rgba(255,255,255,.08)}
+.vbtn:active{transform:scale(.9)}
+.vbtn.acc{background:rgba(15,155,88,.25);color:#5eff9e}.vbtn.acc.on{background:var(--green);color:#fff}
+.vbtn.rej{background:rgba(233,69,96,.2);color:#ff8fa3}.vbtn.rej.on{background:var(--accent);color:#fff}
+.vbtn.bon{background:rgba(245,166,35,.18);color:var(--gold)}.vbtn.bon.on{background:var(--gold);color:#1a0f00}
+.dup-tag{font-size:.58rem;background:rgba(245,166,35,.15);color:var(--gold);border-radius:3px;padding:.08rem .25rem;font-weight:800;margin-left:.25rem}
+.sc-score-row{display:flex;align-items:center;justify-content:space-between;padding:.52rem 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.sc-score-row:last-child{border-bottom:none}
+.sc-pts{font-weight:900;font-size:1.05rem;color:var(--gold)}
+.crwn{display:inline-block;background:var(--gold);color:#1a0f00;border-radius:4px;padding:.04rem .3rem;font-size:.58rem;font-weight:900;margin-left:.3rem;vertical-align:middle}
+.mode-sel{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;width:100%;max-width:500px}
+.mode-btn{border:2px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);border-radius:10px;padding:.85rem .5rem;cursor:pointer;font-family:'Nunito',sans-serif;text-align:center;transition:all .15s}
+.mode-btn.active{border-color:var(--green);background:rgba(15,155,88,.15)}
+.mode-btn .mi{font-size:1.5rem;margin-bottom:.3rem}
+.mode-btn .mt{font-size:.82rem;font-weight:800;color:var(--text)}
+.mode-btn .md{font-size:.68rem;color:var(--muted);margin-top:.15rem}
 </style>
 </head>
 <body>
-<div id="root"></div>
-<script type="text/babel">
-const { useState, useCallback, useEffect, useRef } = React;
+<div id="app"><div class="screen"><p class="muted" style="margin-top:3rem">Loading...</p></div></div>
+<script>
+// ═══════════════════════════════════════════════
+// FIREBASE
+// ═══════════════════════════════════════════════
+firebase.initializeApp({
+  apiKey:"AIzaSyDEtYrWQYBwPoKM8tUDeXTXhwSU3SXcsYI",
+  authDomain:"games-night-23.firebaseapp.com",
+  databaseURL:"https://games-night-23-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:"games-night-23",
+  storageBucket:"games-night-23.firebasestorage.app",
+  messagingSenderId:"440548124532",
+  appId:"1:440548124532:web:a254a84a8a2214201a6e21"
+});
+const db = firebase.database();
 
-function getOptions(key) {
-  switch(key) {
-    case "ones":        return [0,1,2,3,4,5];
-    case "twos":        return [0,2,4,6,8,10];
-    case "threes":      return [0,3,6,9,12,15];
-    case "fours":       return [0,4,8,12,16,20];
-    case "fives":       return [0,5,10,15,20,25];
-    case "sixes":       return [0,6,12,18,24,30];
-    case "threeOfKind": return [0,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30];
-    case "fourOfKind":  return [0,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30];
-    case "fullHouse":   return [0,25];
-    case "smStraight":  return [0,30];
-    case "lgStraight":  return [0,40];
-    case "yahtzee":     return [0,50];
-    case "chance":      return [0,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30];
-    case "yahtzeBonus": return [0,50,100,150,200,250,300];
-    default:            return [];
+// ═══════════════════════════════════════════════
+// SHARED
+// ═══════════════════════════════════════════════
+const PID = localStorage.getItem('gn_pid') || ('p_'+Date.now().toString(36));
+localStorage.setItem('gn_pid', PID);
+let STORED_NAME = localStorage.getItem('gn_name') || '';
+
+function h(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function $id(id){return document.getElementById(id)}
+function val(id){return ($id(id)?.value||'').trim()}
+function rndCode(){return Math.random().toString(36).substr(2,4).toUpperCase()}
+function pick(arr,n){return [...arr].sort(()=>Math.random()-.5).slice(0,n)}
+
+let gameListener = null;
+function stopListening(){if(gameListener){gameListener();gameListener=null;}}
+function listenTo(ref, fn){
+  stopListening();
+  ref.on('value', fn);
+  gameListener = () => ref.off('value', fn);
+}
+
+// ═══════════════════════════════════════════════
+// APP STATE
+// ═══════════════════════════════════════════════
+let A = { screen:'hub' }; // hub, y_setup, y_lobby, y_game, s_setup, s_lobby, s_spin, s_answer, s_vote, s_end, s_over
+
+// ─── YAHTZEE STATE ───
+let Y = {
+  roomCode:null, playerName:'', isHost:false, isScorer:false,
+  mode:'own', game:null, popup:null, numpadDraft:''
+};
+
+// ─── SCATTERGORIES STATE ───
+let S = {
+  roomCode:null, playerName:'', isHost:false, game:null,
+  submitted:false, timerInt:null, localVotes:{}, localAnswers:{}
+};
+
+// ═══════════════════════════════════════════════
+// YAHTZEE DATA
+// ═══════════════════════════════════════════════
+const Y_UPPER = [
+  {key:'ones',  label:'Aces',   desc:'Sum of 1s',  opts:[0,1,2,3,4,5]},
+  {key:'twos',  label:'Twos',   desc:'Sum of 2s',  opts:[0,2,4,6,8,10]},
+  {key:'threes',label:'Threes', desc:'Sum of 3s',  opts:[0,3,6,9,12,15]},
+  {key:'fours', label:'Fours',  desc:'Sum of 4s',  opts:[0,4,8,12,16,20]},
+  {key:'fives', label:'Fives',  desc:'Sum of 5s',  opts:[0,5,10,15,20,25]},
+  {key:'sixes', label:'Sixes',  desc:'Sum of 6s',  opts:[0,6,12,18,24,30]},
+];
+const Y_LOWER = [
+  {key:'threeKind',label:'3 of a Kind',  desc:'Add all dice',  opts:[0,...Array.from({length:26},(_,i)=>i+5)]},
+  {key:'fourKind', label:'4 of a Kind',  desc:'Add all dice',  opts:[0,...Array.from({length:26},(_,i)=>i+5)]},
+  {key:'fullHouse',label:'Full House',   desc:'25 pts',        opts:[0,25]},
+  {key:'smStr',    label:'Sm. Straight', desc:'30 pts',        opts:[0,30]},
+  {key:'lgStr',    label:'Lg. Straight', desc:'40 pts',        opts:[0,40]},
+  {key:'yahtzee',  label:'YAHTZEE',      desc:'50 pts',        opts:[0,50]},
+  {key:'chance',   label:'Chance',       desc:'Add all dice',  opts:[0,...Array.from({length:26},(_,i)=>i+5)]},
+  {key:'yBonus',   label:'Yahtzee Bonus',desc:'100 pts each',  opts:[0,50,100,150,200,250,300]},
+];
+const ALL_Y_CATS = [...Y_UPPER,...Y_LOWER];
+function yEmptyScores(){const s={};ALL_Y_CATS.forEach(c=>s[c.key]=null);return s;}
+function yUpper(sc){return Y_UPPER.reduce((a,c)=>a+(sc[c.key]??0),0);}
+function yLower(sc){return Y_LOWER.reduce((a,c)=>a+(sc[c.key]??0),0);}
+function yBonus(sc){return yUpper(sc)>=63?35:0;}
+function yGrand(sc){return yUpper(sc)+yBonus(sc)+yLower(sc);}
+function yGridCols(key){
+  if(['fullHouse','smStr','lgStr','yahtzee'].includes(key)) return 'repeat(2,1fr)';
+  if(key==='yBonus') return 'repeat(4,1fr)';
+  if(Y_UPPER.find(c=>c.key===key)) return 'repeat(6,1fr)';
+  return 'repeat(6,1fr)';
+}
+
+// ═══════════════════════════════════════════════
+// YAHTZEE ACTIONS
+// ═══════════════════════════════════════════════
+function yRef(p){return db.ref('yahtzee/'+Y.roomCode+(p?'/'+p:''));}
+
+async function yCreate(){
+  const name = val('nameInput')||STORED_NAME;
+  if(!name){flash('Enter your name!');return;}
+  Y.playerName = name; STORED_NAME = name; localStorage.setItem('gn_name',name);
+  const mode = Y.mode;
+  let code = rndCode();
+  for(let i=0;i<5;i++){const sn=await db.ref('yahtzee/'+code).once('value');if(!sn.exists())break;code=rndCode();}
+  Y.roomCode=code; Y.isHost=true; Y.isScorer=true;
+  await db.ref('yahtzee/'+code).set({
+    hostId:PID, scorerId:PID, mode, status:'lobby', createdAt:Date.now(),
+    players:{[PID]:{name,scores:yEmptyScores()}}
+  });
+  yListen(); goScreen('y_lobby');
+}
+
+async function yJoin(){
+  const name = val('nameInput')||STORED_NAME;
+  const code = val('codeInput').toUpperCase();
+  if(!name){flash('Enter your name!');return;}
+  if(code.length!==4){flash('Enter 4-letter room code!');return;}
+  Y.playerName=name; STORED_NAME=name; localStorage.setItem('gn_name',name);
+  Y.roomCode=code;
+  const sn=await db.ref('yahtzee/'+code).once('value');
+  if(!sn.exists()){flash('Room not found!');return;}
+  const g=sn.val();
+  if(g.status==='finished'){flash('Game already finished!');return;}
+  await db.ref('yahtzee/'+code+'/players/'+PID).set({name,scores:yEmptyScores()});
+  yListen(); goScreen('y_lobby');
+}
+
+function yListen(){
+  listenTo(yRef(), sn=>{
+    if(!sn.exists())return;
+    Y.game=sn.val();
+    Y.isHost=Y.game.hostId===PID;
+    Y.isScorer=Y.game.scorerId===PID;
+    Y.mode=Y.game.mode||'own';
+    const t=Y.game.status==='lobby'?'y_lobby':'y_game';
+    if(A.screen!==t){goScreen(t);} else {render();}
+  });
+}
+
+async function yStartGame(){
+  await yRef('status').set('playing');
+}
+
+function yCanEdit(pid){
+  if(Y.mode==='central') return Y.isScorer;
+  return pid===PID;
+}
+
+function yOpenPopup(pid,key){
+  if(!yCanEdit(pid))return;
+  Y.popup={pid,key};
+  const cur=Y.game?.players?.[pid]?.scores?.[key];
+  Y.numpadDraft=cur!=null&&cur!==0?String(cur):'';
+  render();
+}
+
+function yClosePopup(){Y.popup=null;render();}
+
+async function ySetScore(pid,key,v){
+  await yRef('players/'+pid+'/scores/'+key).set(v);
+  Y.popup=null; render();
+}
+
+async function yClearScore(pid,key){
+  await yRef('players/'+pid+'/scores/'+key).set(null);
+  Y.popup=null; render();
+}
+
+// ═══════════════════════════════════════════════
+// SCATTERGORIES DATA
+// ═══════════════════════════════════════════════
+const SC_CATS=[
+  "Animals","Boys Names","Girls Names","Countries","Cities/Towns",
+  "Things in a Kitchen","Things at the Beach","Jobs/Occupations",
+  "Sports","TV Shows","Movies","Foods/Drinks","Clothing Items",
+  "Things in a School","Musical Instruments","Things that are Round",
+  "Brands/Companies","Things in a Bedroom","Aussie Slang","Things at a BBQ",
+  "Australian Places","Things in a Pub","Board/Card Games","Celebrities",
+  "Things that are Hot","Things that are Cold","Vehicles","Things in a Garden",
+  "Hobbies","Things at a Wedding","Colours","Things in a Bathroom",
+  "Things you Drink","Things in an Office","Things at a Footy Game",
+  "Things in a Hospital","Flowers/Plants","Things at Christmas",
+  "Australian Animals","Songs/Bands","Things in a Gym","Furniture",
+  "Things in a Handbag","Cartoon Characters","Things that Fly","Types of Transport"
+];
+const SC_LETTERS='ABCDEFGHIJKLMNOPRSTW'.split('');
+const SC_ROUNDS=3, SC_SECS=120;
+
+// ═══════════════════════════════════════════════
+// SCATTERGORIES ACTIONS
+// ═══════════════════════════════════════════════
+function sRef(p){return db.ref('scattergories/'+S.roomCode+(p?'/'+p:''));}
+
+async function sCreate(){
+  const name=val('nameInput')||STORED_NAME;
+  if(!name){flash('Enter your name!');return;}
+  S.playerName=name; STORED_NAME=name; localStorage.setItem('gn_name',name);
+  S.isHost=true;
+  let code=rndCode();
+  for(let i=0;i<5;i++){const sn=await db.ref('scattergories/'+code).once('value');if(!sn.exists())break;code=rndCode();}
+  S.roomCode=code;
+  await db.ref('scattergories/'+code).set({
+    hostId:PID,status:'lobby',round:0,createdAt:Date.now(),
+    players:{[PID]:{name,totalScore:0}}
+  });
+  sListen(); goScreen('s_lobby');
+}
+
+async function sJoin(){
+  const name=val('nameInput')||STORED_NAME;
+  const code=val('codeInput').toUpperCase();
+  if(!name){flash('Enter your name!');return;}
+  if(code.length!==4){flash('Enter 4-letter room code!');return;}
+  S.playerName=name; STORED_NAME=name; localStorage.setItem('gn_name',name);
+  S.roomCode=code;
+  const sn=await db.ref('scattergories/'+code).once('value');
+  if(!sn.exists()){flash('Room not found!');return;}
+  const g=sn.val();
+  if(g.status!=='lobby'){flash('Game already started!');return;}
+  await db.ref('scattergories/'+code+'/players/'+PID).set({name,totalScore:0});
+  sListen(); goScreen('s_lobby');
+}
+
+function sListen(){
+  listenTo(sRef(), sn=>{
+    if(!sn.exists())return;
+    S.game=sn.val();
+    S.isHost=S.game.hostId===PID;
+    const map={lobby:'s_lobby',spinning:'s_spin',answering:'s_answer',voting:'s_vote',roundEnd:'s_end',finished:'s_over'};
+    const t=map[S.game.status];
+    if(t&&t!==A.screen){
+      if(t==='s_answer'){S.submitted=false;S.localAnswers={};}
+      if(t==='s_vote'){S.localVotes={};}
+      if(S.timerInt){clearInterval(S.timerInt);S.timerInt=null;}
+      goScreen(t);
+    } else render();
+  });
+}
+
+async function sStart(){
+  if(Object.keys(S.game?.players||{}).length<2){flash('Need at least 2 players!');return;}
+  await sBeginRound(1);
+}
+
+async function sBeginRound(round){
+  const letter=SC_LETTERS[Math.floor(Math.random()*SC_LETTERS.length)];
+  const cats=pick(SC_CATS,12);
+  const pids=Object.keys(S.game?.players||{});
+  const upd={'status':'spinning','round':round,'letter':letter,'categories':cats,'votes':null,'votingState':{catIdx:0}};
+  pids.forEach(pid=>{upd['players/'+pid+'/answers']=null;upd['players/'+pid+'/roundScore']=0;});
+  await sRef().update(upd);
+}
+
+async function sBeginTimer(){await sRef().update({status:'answering',timerEnd:Date.now()+SC_SECS*1000});}
+
+async function sSubmit(){
+  const cats=S.game?.categories||[];
+  const answers={};
+  cats.forEach((_,i)=>{answers[i]=(($id('ans_'+i)?.value)||S.localAnswers[i]||'').trim();});
+  await sRef('players/'+PID+'/answers').set(answers);
+  S.submitted=true;
+  if(S.timerInt){clearInterval(S.timerInt);S.timerInt=null;}
+  render();
+}
+
+async function sStartVoting(){await sRef().update({status:'voting',votingState:{catIdx:0},votes:null});}
+
+function sVote(catIdx,targetPid,vtype){
+  if(!S.localVotes[catIdx])S.localVotes[catIdx]={};
+  S.localVotes[catIdx][targetPid]=vtype;
+  sRef('votes/'+catIdx+'/'+PID+'/'+targetPid).set(vtype);
+  render();
+}
+
+async function sNextCat(){
+  const catIdx=S.game?.votingState?.catIdx||0;
+  await sCalcScores(catIdx);
+  if(catIdx+1>=(S.game?.categories?.length||12)){await sEndRound();}
+  else{await sRef('votingState/catIdx').set(catIdx+1);}
+}
+
+async function sCalcScores(catIdx){
+  const players=S.game?.players||{};
+  const votes=S.game?.votes?.[catIdx]||{};
+  const pids=Object.keys(players);
+  const ans={};
+  pids.forEach(pid=>{ans[pid]=(players[pid]?.answers?.[catIdx]||'').toLowerCase().trim();});
+  const cnt={};
+  pids.forEach(pid=>{if(ans[pid])cnt[ans[pid]]=(cnt[ans[pid]]||0)+1;});
+  const upd={};
+  pids.forEach(pid=>{
+    const a=ans[pid]; if(!a)return;
+    const votesOn=Object.values(votes).map(v=>v?.[pid]).filter(Boolean);
+    const accepts=votesOn.filter(v=>v==='accept'||v==='bonus').length;
+    const rejects=votesOn.filter(v=>v==='reject').length;
+    const bonuses=votesOn.filter(v=>v==='bonus').length;
+    const ok=votesOn.length===0||accepts>=rejects;
+    let pts=0;
+    if(ok){if(bonuses>0)pts=3;else if(cnt[a]>1)pts=1;else pts=2;}
+    upd['players/'+pid+'/roundScore']=(players[pid]?.roundScore||0)+pts;
+  });
+  if(Object.keys(upd).length)await sRef().update(upd);
+}
+
+async function sEndRound(){
+  const players=S.game?.players||{};
+  const upd={};
+  Object.keys(players).forEach(pid=>{
+    upd['players/'+pid+'/totalScore']=(players[pid]?.totalScore||0)+(players[pid]?.roundScore||0);
+  });
+  upd.status=S.game.round>=SC_ROUNDS?'finished':'roundEnd';
+  await sRef().update(upd);
+}
+
+async function sNextRound(){await sBeginRound(S.game.round+1);}
+
+async function sPlayAgain(){
+  const pids=Object.keys(S.game?.players||{});
+  const upd={status:'lobby',round:0,letter:null,categories:null,votes:null,votingState:null};
+  pids.forEach(pid=>{upd['players/'+pid+'/totalScore']=0;upd['players/'+pid+'/roundScore']=0;upd['players/'+pid+'/answers']=null;});
+  await sRef().update(upd);
+}
+
+function sShare(){
+  if(navigator.share){navigator.share({title:'Scattergories Night',text:'Room code: '+S.roomCode});}
+  else{navigator.clipboard?.writeText(S.roomCode);flash('Code copied!');}
+}
+
+// ═══════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════
+function goHub(){stopListening();A.screen='hub';Y={roomCode:null,playerName:'',isHost:false,isScorer:false,mode:'own',game:null,popup:null};S={roomCode:null,playerName:'',isHost:false,game:null,submitted:false,timerInt:null,localVotes:{},localAnswers:{}};FC={roomCode:null,playerName:'',isHost:false,isScorer:false,mode:'own',game:null,popup:null,popupDraft:''};QK={roomCode:null,playerName:'',isHost:false,isScorer:false,mode:'own',game:null,popup:null,numpadDraft:''};if(FB.timerInt){clearInterval(FB.timerInt);FB.timerInt=null;}FB={roomCode:null,playerName:'',isHost:false,game:null,timerInt:null,localWords:{}};render();}
+function goScreen(s){A.screen=s;render();}
+
+// ═══════════════════════════════════════════════
+// RENDER ENGINE
+// ═══════════════════════════════════════════════
+function flash(msg){const el=$id('flash');if(el){el.textContent=msg;el.style.opacity=1;setTimeout(()=>el.style.opacity=0,2800);}}
+function bindKeys(){
+  [$id('nameInput'),$id('codeInput')].forEach(el=>{
+    if(el)el.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){
+        if(A.screen==='y_setup'){if(el.id==='codeInput')yJoin();else if(!val('codeInput'))yCreate();}
+        if(A.screen==='s_setup'){if(el.id==='codeInput')sJoin();else if(!val('codeInput'))sCreate();}
+      }
+    });
+  });
+}
+
+function sRunTimer(){
+  if(S.timerInt)clearInterval(S.timerInt);
+  S.timerInt=setInterval(()=>{
+    const te=S.game?.timerEnd||0;
+    const sec=Math.max(0,Math.ceil((te-Date.now())/1000));
+    const el=$id('s-timer');
+    if(el){
+      el.textContent=`${Math.floor(sec/60)}:${(sec%60).toString().padStart(2,'0')}`;
+      el.className=sec<=30?'timer urgent':'timer';
+    }
+    if(sec<=0){clearInterval(S.timerInt);S.timerInt=null;sSubmit();}
+  },500);
+}
+
+function render(){
+  const screens={hub:rHub,y_setup:rYSetup,y_lobby:rYLobby,y_game:rYGame,s_setup:rSSetup,s_lobby:rSLobby,s_spin:rSSpin,s_answer:rSAnswer,s_vote:rSVote,s_end:rSEnd,s_over:rSOver,fc_setup:rFCSetup,fc_lobby:rFCLobby,fc_game:rFCGame,qk_setup:rQKSetup,qk_lobby:rQKLobby,qk_game:rQKGame,fb_setup:rFBSetup,fb_lobby:rFBLobby,fb_entering:rFBEntering,fb_teaming:rFBTeaming,fb_team_wait:rFBTeamWait,fb_playing:rFBPlaying,fb_guessing:rFBGuessing,fb_watching:rFBWatching,fb_roundend:rFBRoundEnd,fb_finished:rFBFinished};
+  $id('app').innerHTML=(screens[A.screen]||rHub)();
+  bindKeys();
+  if(A.screen==='s_answer')sRunTimer();
+  if(A.screen==='y_game'&&Y.popup)bindPopupClose();
+  if(A.screen==='fc_game'&&FC.popup){const ov=$id('fc-popup-ov');if(ov)ov.addEventListener('mousedown',e=>{if(e.target===ov)fcClosePopup();});}
+  if(A.screen==='qk_game'&&QK.popup){const ov=$id('qk-popup-ov');if(ov)ov.addEventListener('mousedown',e=>{if(e.target===ov)qkClosePopup();});}
+  if(['fb_playing','fb_guessing','fb_watching'].includes(A.screen)&&FB.game?.turnState?.active)fbRunTimer();
+}
+
+function bindPopupClose(){
+  const ov=$id('popup-ov');
+  if(ov)ov.addEventListener('mousedown',e=>{if(e.target===ov)yClosePopup();});
+}
+
+// ═══════════════════════════════════════════════
+// HUB
+// ═══════════════════════════════════════════════
+function rHub(){
+  return `<div class="screen">
+  <div style="margin-top:1.5rem"></div>
+  <div style="font-size:2rem">🎮</div>
+  <h1 class="title title-gn">Game Night</h1>
+  <p class="muted">Choose your game</p>
+  <div class="game-tile tile-y w500" onclick="goScreen('y_setup')">
+    <div class="tile-icon">🎲</div>
+    <div class="tile-name" style="color:#5eff9e">Yahtzee</div>
+    <div class="tile-desc">Up to 6 players • Real-time scorecard<br>Own device or central scorer</div>
+    <div class="tile-arrow">›</div>
+  </div>
+  <div class="game-tile tile-s w500" onclick="goScreen('s_setup')">
+    <div class="tile-icon">🔤</div>
+    <div class="tile-name" style="color:#ff8fa3">Scattergories</div>
+    <div class="tile-desc">2–8 players • Everyone on their phone<br>3 rounds • Vote on answers</div>
+    <div class="tile-arrow">›</div>
+  </div>
+  <div class="game-tile tile-fc w500" onclick="goScreen('fc_setup')">
+    <div class="tile-icon">🃏</div>
+    <div class="tile-name" style="color:#c8a4ff">5 Crowns</div>
+    <div class="tile-desc">2–7 players • 11 rounds • Lower score wins<br>Own device or central scorer</div>
+    <div class="tile-arrow">›</div>
+  </div>
+  <div class="game-tile tile-qk w500" onclick="goScreen('qk_setup')">
+    <div class="tile-icon">🎯</div>
+    <div class="tile-name" style="color:#4cc9f0">Qwirkle</div>
+    <div class="tile-desc">2–6 players • Running score per turn<br>Tap to add points · Qwirkle bonus built in</div>
+    <div class="tile-arrow">›</div>
+  </div>
+  <div class="game-tile tile-fb w500" onclick="goScreen('fb_setup')">
+    <div class="tile-icon">🎭</div>
+    <div class="tile-name" style="color:#e8a0ff">Fishbowl</div>
+    <div class="tile-desc">Celebrity · The Hat Game · 2–4 teams<br>3 rounds: Describe · One Word · Act</div>
+    <div class="tile-arrow">›</div>
+  </div>
+  <p class="muted" style="margin-top:.5rem">More games coming soon...</p>
+</div>`;
+}
+
+// ═══════════════════════════════════════════════
+// YAHTZEE SCREENS
+// ═══════════════════════════════════════════════
+function rYSetup(){
+  return `<div class="screen">
+  <button class="back-btn w500" onclick="goHub()">← Games</button>
+  <h1 class="title title-y" style="font-size:2rem">🎲 Yahtzee</h1>
+  <div class="card" style="display:flex;flex-direction:column;gap:.75rem">
+    <div><label>Your Name</label><input id="nameInput" placeholder="Enter your name" value="${h(STORED_NAME)}" autocomplete="off"/></div>
+    <div>
+      <label>Scoring Mode</label>
+      <div class="mode-sel">
+        <div class="mode-btn ${Y.mode==='own'?'active':''}" onclick="Y.mode='own';render()">
+          <div class="mi">📱</div>
+          <div class="mt">Own Device</div>
+          <div class="md">Each player enters their own scores</div>
+        </div>
+        <div class="mode-btn ${Y.mode==='central'?'active':''}" onclick="Y.mode='central';render()">
+          <div class="mi">📋</div>
+          <div class="mt">Central Scorer</div>
+          <div class="md">One person enters all scores</div>
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-green" onclick="yCreate()">Create Game</button>
+    <div class="muted">— or join —</div>
+    <div><label>Room Code</label>
+      <input id="codeInput" placeholder="e.g. X7K2" maxlength="4" autocomplete="off"
+        style="text-transform:uppercase;letter-spacing:.2em;font-size:1.3rem;text-align:center"/>
+    </div>
+    <button class="btn btn-ghost" onclick="yJoin()">Join Game →</button>
+  </div>
+  <div id="flash" class="flash" style="opacity:0"></div>
+</div>`;
+}
+
+function rYLobby(){
+  const ps=Y.game?.players||{};
+  const pList=Object.values(ps);
+  const modeLabel=Y.mode==='central'?'Central Scorer':'Own Device';
+  return `<div class="screen">
+  <button class="back-btn w500" onclick="goHub()">← Games</button>
+  <h1 class="title title-y" style="font-size:1.8rem">🎲 Yahtzee</h1>
+  <div class="card" style="text-align:center">
+    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.3rem">Room Code</div>
+    <div class="code-box">${h(Y.roomCode)}</div>
+    <div style="margin-top:.4rem;font-size:.72rem;color:var(--muted)">Mode: ${modeLabel}</div>
+  </div>
+  <div class="card">
+    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem">Players (${pList.length})</div>
+    <div style="display:flex;flex-wrap:wrap">${pList.map(p=>`<div class="chip"><div class="dot"></div>${h(p.name)}</div>`).join('')}</div>
+  </div>
+  ${Y.isHost
+    ?`<button class="btn btn-green" onclick="yStartGame()">Start Game →</button>
+      <p class="muted">You're the host — press start when ready</p>`
+    :`<p class="muted">⏳ Waiting for host to start...</p>`}
+  <div id="flash" class="flash" style="opacity:0"></div>
+</div>`;
+}
+
+function rYGame(){
+  const players=Y.game?.players||{};
+  const pids=Object.keys(players);
+  const pNames=pids.map(pid=>players[pid]?.name||pid);
+
+  // Find leader
+  const grands=pids.map(pid=>yGrand(players[pid]?.scores||{}));
+  const maxG=Math.max(...grands,0);
+
+  let html=`<div class="screen" style="padding:0;gap:0">`;
+
+  // Top bar
+  html+=`<div style="width:100%;background:#0f0f1a;padding:.6rem 1rem;display:flex;align-items:center;gap:.6rem;position:sticky;top:0;z-index:20;border-bottom:1px solid rgba(255,255,255,.06)">
+    <button class="back-btn" style="flex-shrink:0" onclick="goHub()">← Hub</button>
+    <span class="title title-y" style="font-size:1.2rem;flex:1;text-align:center">🎲 Yahtzee</span>
+    <span class="badge">${Y.mode==='central'?(Y.isScorer?'Scoring':'Watching'):'Own Device'}</span>
+  </div>`;
+
+  // Scorecard
+  html+=`<div style="width:100%;padding:.5rem;overflow:hidden"><div class="y-scroll">`;
+  html+=`<table class="y-table"><thead class="y-thead"><tr>`;
+  html+=`<th class="sticky-col">Category</th>`;
+  pids.forEach((pid,i)=>{
+    const isLeader=grands[i]===maxG&&maxG>0;
+    html+=`<th style="min-width:72px${isLeader?';background:#2d5a10':''}">${h(pNames[i])}${isLeader?' 👑':''}</th>`;
+  });
+  html+=`</tr></thead><tbody>`;
+
+  // Section builder
+  function addSection(label){
+    html+=`<tr class="y-sec-row"><td class="sticky-col">${label}</td>${pids.map(()=>'<td></td>').join('')}</tr>`;
+  }
+  function addRow(cat, rowIdx){
+    const alt=rowIdx%2===1?'y-alt':'';
+    html+=`<tr class="${alt}"><td class="y-cat-td"><div class="y-cat-name">${h(cat.label)}</div><div class="y-cat-desc">${h(cat.desc)}</div></td>`;
+    pids.forEach((pid,pi)=>{
+      const sc=players[pid]?.scores||{};
+      const v=sc[cat.key];
+      const canEdit=yCanEdit(pid);
+      const cls=['cell-tap',canEdit?'can':'ro',v===null?'empty':v===0?'scratched':'scored'].join(' ');
+      html+=`<td class="y-score-td"><div class="${cls}" onclick="${canEdit?`yOpenPopup('${pid}','${cat.key}')`:''}">`;
+      html+=v===null?'—':v===0?'✕':v;
+      html+=`</div></td>`;
+    });
+    html+=`</tr>`;
+  }
+  function addSubtotal(label, fn, cls='y-sub'){
+    html+=`<tr class="${cls}"><td class="y-cat-td" style="color:#5a3a00"><div class="y-cat-name" style="font-size:.72rem">${label}</div></td>`;
+    pids.forEach(pid=>{
+      const v=fn(players[pid]?.scores||{});
+      html+=`<td class="y-score-td"><div class="cell-tap ro scored" style="font-size:.88rem;font-weight:700;color:#2d1a00">${v}</div></td>`;
+    });
+    html+=`</tr>`;
+  }
+
+  addSection('Upper Section — score 63+ for +35 bonus');
+  Y_UPPER.forEach((cat,i)=>addRow(cat,i));
+  addSubtotal('Upper Total', yUpper);
+
+  // Bonus row
+  html+=`<tr class="y-bonus"><td class="y-cat-td"><div class="y-cat-name">Bonus +35</div><div class="y-cat-desc">Upper ≥ 63</div></td>`;
+  pids.forEach(pid=>{
+    const b=yBonus(players[pid]?.scores||{});
+    const rem=Math.max(0,63-yUpper(players[pid]?.scores||{}));
+    html+=`<td class="y-score-td"><div class="cell-tap ro scored" style="color:${b?'#2d5a2d':'#bbb'};font-size:${b?'.88':'0.72'}rem">`;
+    html+=b?'+35 ✓':rem>0?`-${rem}`:'—';
+    html+=`</div></td>`;
+  });
+  html+=`</tr>`;
+
+  addSection('Lower Section');
+  Y_LOWER.forEach((cat,i)=>addRow(cat,i));
+  addSubtotal('Lower Total', yLower);
+
+  // Grand total
+  html+=`<tr class="y-grand"><td class="y-cat-td"><div class="y-grand-name">Grand Total</div></td>`;
+  pids.forEach((pid,i)=>{
+    const g=grands[i];
+    const isLeader=g===maxG&&maxG>0;
+    html+=`<td class="y-score-td" style="${isLeader?'background:#b5903a':''}" ><div class="cell-tap ro grand-val">`;
+    if(isLeader) html+=`<span class="leader-star">★</span>`;
+    html+=g;
+    html+=`</div></td>`;
+  });
+  html+=`</tr>`;
+
+  html+=`</tbody></table></div></div>`;
+
+  // Popup
+  if(Y.popup){
+    const {pid,key}=Y.popup;
+    const cat=ALL_Y_CATS.find(c=>c.key===key);
+    const curVal=players[pid]?.scores?.[key]??null;
+    const useNumpad=['threeKind','fourKind','chance'].includes(key);
+    const npDisp=Y.numpadDraft||(curVal!=null&&curVal!==0?String(curVal):'');
+    html+=`<div class="popup-ov" id="popup-ov">
+    <div class="popup-bx">
+      <div class="popup-ttl">${h(cat?.label)}</div>
+      <div class="popup-dsc">${h(players[pid]?.name)} — ${h(cat?.desc)}</div>
+      ${useNumpad?`
+        <div id="y-np-disp" style="background:rgba(45,90,45,.12);border-radius:8px;padding:.3rem 1rem;text-align:center;font-size:2.2rem;font-weight:900;color:#2d1a00;margin-bottom:.55rem;min-height:2.7rem">${npDisp||'—'}</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:.4rem">
+          ${[7,8,9,4,5,6,1,2,3].map(n=>`<button class="p-btn" style="font-size:1.05rem;padding:.62rem 0" onclick="yNumpad('${n}')">${n}</button>`).join('')}
+          <button class="p-btn sc" style="font-size:1.15rem;padding:.62rem 0" onclick="yNumpad('back')">⌫</button>
+          <button class="p-btn" style="font-size:1.05rem;padding:.62rem 0" onclick="yNumpad('0')">0</button>
+          <button class="p-btn" style="background:#2d5a2d;color:#f5e9c8;border-color:#2d5a2d;font-size:1.15rem;padding:.62rem 0" onclick="yNumpadOk('${pid}','${key}')">✓</button>
+        </div>
+        <button class="p-btn sc" style="font-size:.82rem;padding:.42rem;width:100%;margin-bottom:.35rem" onclick="ySetScore('${pid}','${key}',0)">✕ Scratch (0 pts)</button>
+      `:`
+        <div class="popup-grid" style="grid-template-columns:${yGridCols(key)}">
+          ${(cat?.opts||[]).map(opt=>`<button class="p-btn ${opt===0?'sc':''} ${curVal===opt?'sel':''}" onclick="ySetScore('${pid}','${key}',${opt})">${opt===0?'✕':opt}</button>`).join('')}
+        </div>
+      `}
+      ${curVal!==null?`<button class="p-btn" style="color:#aaa;font-size:.72rem;margin-bottom:.35rem;width:100%" onclick="yClearScore('${pid}','${key}')">Clear score</button>`:''}
+      <button class="p-cancel" onclick="yClosePopup()">Cancel</button>
+    </div></div>`;
+  }
+
+  html+=`</div>`;
+  return html;
+}
+
+// ═══════════════════════════════════════════════
+// SCATTERGORIES SCREENS
+// ═══════════════════════════════════════════════
+function rSSetup(){
+  return `<div class="screen">
+  <button class="back-btn w500" onclick="goHub()">← Games</button>
+  <h1 class="title title-s" style="font-size:2rem">🔤 Scattergories</h1>
+  <div class="card" style="display:flex;flex-direction:column;gap:.75rem">
+    <div><label>Your Name</label><input id="nameInput" placeholder="Enter your name" value="${h(STORED_NAME)}" autocomplete="off"/></div>
+    <button class="btn btn-red" onclick="sCreate()">Create Game</button>
+    <div class="muted">— or join —</div>
+    <div><label>Room Code</label>
+      <input id="codeInput" placeholder="e.g. X7K2" maxlength="4" autocomplete="off"
+        style="text-transform:uppercase;letter-spacing:.2em;font-size:1.3rem;text-align:center"/>
+    </div>
+    <button class="btn btn-ghost" onclick="sJoin()">Join Game →</button>
+  </div>
+  <div id="flash" class="flash" style="opacity:0"></div>
+</div>`;
+}
+
+function rSLobby(){
+  const ps=S.game?.players||{};
+  return `<div class="screen">
+  <button class="back-btn w500" onclick="goHub()">← Games</button>
+  <h1 class="title title-s" style="font-size:1.8rem">🔤 Scattergories</h1>
+  <div class="card" style="text-align:center">
+    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.3rem">Room Code</div>
+    <div class="code-box">${h(S.roomCode)}</div>
+    <button class="btn-ghost btn" onclick="sShare()" style="margin-top:.6rem;padding:.45rem;font-size:.78rem">📤 Share Code</button>
+  </div>
+  <div class="card">
+    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem">Players (${Object.values(ps).length})</div>
+    <div style="display:flex;flex-wrap:wrap">${Object.values(ps).map(p=>`<div class="chip"><div class="dot"></div>${h(p.name)}</div>`).join('')}</div>
+  </div>
+  ${S.isHost
+    ?`<button class="btn btn-red" onclick="sStart()">Start Game →</button><p class="muted">You're the host</p>`
+    :`<p class="muted">⏳ Waiting for host to start...</p>`}
+  <div id="flash" class="flash" style="opacity:0"></div>
+</div>`;
+}
+
+function rSSpin(){
+  const letter=S.game?.letter||'?';
+  const round=S.game?.round||1;
+  const cats=S.game?.categories||[];
+  return `<div class="screen">
+  <div class="badge">Round ${round} of ${SC_ROUNDS}</div>
+  <div class="card" style="text-align:center">
+    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.3rem">The Letter Is</div>
+    <div class="letter-big">${h(letter)}</div>
+  </div>
+  <div class="card">
+    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem">12 Categories</div>
+    ${cats.map((c,i)=>`<div class="cat-row"><span class="cat-num">${i+1}</span><span style="font-size:.85rem;font-weight:700">${h(c)}</span></div>`).join('')}
+  </div>
+  ${S.isHost?`<button class="btn btn-red" onclick="sBeginTimer()">▶ Start Timer (2 min)</button>`:`<p class="muted">⏳ Host is starting the timer...</p>`}
+</div>`;
+}
+
+function rSAnswer(){
+  const letter=S.game?.letter||'?';
+  const cats=S.game?.categories||[];
+  const te=S.game?.timerEnd||0;
+  const sec=Math.max(0,Math.ceil((te-Date.now())/1000));
+  const urgent=sec<=30;
+  const tStr=`${Math.floor(sec/60)}:${(sec%60).toString().padStart(2,'0')}`;
+  if(S.submitted){
+    return `<div class="screen">
+    <div class="badge">Round ${S.game?.round} of ${SC_ROUNDS}</div>
+    <div style="font-size:3.5rem;text-align:center">✅</div>
+    <div style="text-align:center;font-weight:800;font-size:1.1rem">Answers submitted!</div>
+    <p class="muted">Waiting for others...</p>
+    <div class="${urgent?'timer urgent':'timer'}" id="s-timer">${tStr}</div>
+    ${S.isHost?`<button class="btn btn-gold" onclick="sStartVoting()">Everyone's done — Start Voting →</button>`:''}
+    </div>`;
+  }
+  return `<div class="screen" style="padding-bottom:1rem">
+  <div style="display:flex;align-items:center;justify-content:space-between;width:100%;max-width:500px">
+    <div class="badge">Round ${S.game?.round}</div>
+    <div class="${urgent?'timer urgent':'timer'}" style="font-size:1.8rem" id="s-timer">${tStr}</div>
+  </div>
+  <div style="background:rgba(233,69,96,.12);border-radius:12px;padding:.5rem 1.2rem;text-align:center;width:100%;max-width:500px">
+    <div style="font-size:.65rem;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.1em">The Letter</div>
+    <div style="font-size:3.5rem;font-weight:900;color:var(--accent);line-height:1.1">${h(letter)}</div>
+  </div>
+  <div class="card" style="padding:.8rem">
+    ${cats.map((c,i)=>`<div class="cat-row">
+      <span class="cat-num">${i+1}</span>
+      <span class="cat-lbl">${h(c)}</span>
+      <input class="cat-inp" id="ans_${i}" placeholder="${h(letter)}..." autocomplete="off"
+        oninput="S.localAnswers[${i}]=this.value" value="${h(S.localAnswers[i]||'')}"/>
+    </div>`).join('')}
+  </div>
+  <button class="btn btn-green" onclick="sSubmit()">✓ Submit My Answers</button>
+</div>`;
+}
+
+function rSVote(){
+  const cats=S.game?.categories||[];
+  const players=S.game?.players||{};
+  const catIdx=S.game?.votingState?.catIdx||0;
+  const cat=cats[catIdx]||'';
+  const letter=S.game?.letter||'?';
+  const pids=Object.keys(players);
+  const allVotes=S.game?.votes?.[catIdx]||{};
+  const ans={};
+  pids.forEach(pid=>{ans[pid]=(players[pid]?.answers?.[catIdx]||'').trim();});
+  const cnt={};
+  pids.forEach(pid=>{if(ans[pid])cnt[ans[pid].toLowerCase()]=(cnt[ans[pid].toLowerCase()]||0)+1;});
+  return `<div class="screen">
+  <div style="display:flex;align-items:center;justify-content:space-between;width:100%;max-width:500px">
+    <div class="badge">Round ${S.game?.round}</div>
+    <div style="font-size:.72rem;color:var(--muted);font-weight:700">${catIdx+1} / ${cats.length}</div>
+  </div>
+  <div class="card" style="text-align:center;padding:.8rem">
+    <div style="font-size:.62rem;color:var(--accent);font-weight:900;letter-spacing:.1em;text-transform:uppercase">Letter ${h(letter)}</div>
+    <div style="font-size:1.2rem;font-weight:900;margin-top:.2rem">${h(cat)}</div>
+    <div style="font-size:.65rem;color:var(--muted);margin-top:.25rem">✓ Accept &nbsp; ✗ Reject &nbsp; ⭐ Bonus +3pts</div>
+  </div>
+  <div class="card" style="padding:.8rem">
+    ${pids.map(pid=>{
+      const a=ans[pid];
+      const isMe=pid===PID;
+      const isDup=a&&cnt[a.toLowerCase()]>1;
+      const myVote=S.localVotes[catIdx]?.[pid]||allVotes[PID]?.[pid];
+      return `<div class="vote-row">
+        <div class="vote-left">
+          <div class="vnm">${h(players[pid]?.name)}${isMe?' (you)':''}</div>
+          <div class="vans" style="color:${a?'#f0f0f0':'#555'}">${a?h(a):'<em style="color:#555;font-size:.8rem">—</em>'}${isDup&&a?`<span class="dup-tag">duplicate</span>`:''}</div>
+        </div>
+        ${!isMe&&a?`<div style="display:flex;gap:.32rem">
+          <button class="vbtn acc ${myVote==='accept'?'on':''}" onclick="sVote(${catIdx},'${pid}','accept')">✓</button>
+          <button class="vbtn rej ${myVote==='reject'?'on':''}" onclick="sVote(${catIdx},'${pid}','reject')">✗</button>
+          <button class="vbtn bon ${myVote==='bonus'?'on':''}" onclick="sVote(${catIdx},'${pid}','bonus')">⭐</button>
+        </div>`:`<div style="width:88px"></div>`}
+      </div>`;
+    }).join('')}
+  </div>
+  ${S.isHost?`<button class="btn btn-gold" onclick="sNextCat()">${catIdx+1>=cats.length?'Finish Voting →':'Next Category →'}</button>`:`<p class="muted">Vote then wait for host</p>`}
+</div>`;
+}
+
+function rSEnd(){
+  const round=S.game?.round||1;
+  const ps=S.game?.players||{};
+  const sorted=Object.entries(ps).sort((a,b)=>(b[1].totalScore||0)-(a[1].totalScore||0));
+  const maxS=sorted[0]?.[1]?.totalScore||0;
+  return `<div class="screen">
+  <div class="badge">Round ${round} of ${SC_ROUNDS} Complete</div>
+  <h2 style="font-weight:900;font-size:1.4rem;text-align:center">Scores 📊</h2>
+  <div class="card w500">
+    ${sorted.map(([pid,p],i)=>`<div class="sc-score-row">
+      <div>
+        <span style="font-size:.9rem;font-weight:900;color:var(--muted);margin-right:.4rem">${i+1}.</span>
+        <span style="font-weight:800">${h(p.name)}${p.totalScore===maxS?'<span class="crwn">👑 Leading</span>':''}</span>
+        <div style="font-size:.7rem;color:var(--muted)">This round: +${p.roundScore||0}</div>
+      </div>
+      <div class="sc-pts">${p.totalScore||0}</div>
+    </div>`).join('')}
+  </div>
+  ${S.isHost?`<button class="btn btn-red" onclick="sNextRound()">Round ${round+1} →</button>`:`<p class="muted">⏳ Waiting for host...</p>`}
+</div>`;
+}
+
+function rSOver(){
+  const ps=S.game?.players||{};
+  const sorted=Object.entries(ps).sort((a,b)=>(b[1].totalScore||0)-(a[1].totalScore||0));
+  const winner=sorted[0];
+  const medals=['🥇','🥈','🥉'];
+  return `<div class="screen">
+  <h1 class="title title-s">Game Over!</h1>
+  ${winner?`<div style="text-align:center"><div style="font-size:4rem">🏆</div>
+    <div style="font-size:2rem;font-weight:900;color:var(--gold)">${h(winner[1].name)}</div>
+    <p class="muted">wins with ${winner[1].totalScore} points!</p></div>`:''}
+  <div class="card w500">
+    ${sorted.map(([pid,p],i)=>`<div class="sc-score-row">
+      <div><span style="margin-right:.3rem">${medals[i]||`${i+1}.`}</span><span style="font-weight:800">${h(p.name)}</span></div>
+      <div class="sc-pts">${p.totalScore||0}</div>
+    </div>`).join('')}
+  </div>
+  ${S.isHost?`<button class="btn btn-green" onclick="sPlayAgain()">Play Again! 🎉</button>`:`<p class="muted">Thanks for playing! 🎲</p>`}
+  <button class="btn btn-ghost" onclick="goHub()">← Back to Games</button>
+</div>`;
+}
+
+
+// ═══════════════════════════════════════════════
+// 5 CROWNS DATA
+// ═══════════════════════════════════════════════
+const FC_ROUNDS = [
+  {r:1,wild:"3s",cards:3},{r:2,wild:"4s",cards:4},{r:3,wild:"5s",cards:5},
+  {r:4,wild:"6s",cards:6},{r:5,wild:"7s",cards:7},{r:6,wild:"8s",cards:8},
+  {r:7,wild:"9s",cards:9},{r:8,wild:"10s",cards:10},{r:9,wild:"Jacks",cards:11},
+  {r:10,wild:"Queens",cards:12},{r:11,wild:"Kings",cards:13}
+];
+// ═══════════════════════════════════════════════
+// 5 CROWNS STATE
+// ═══════════════════════════════════════════════
+let FC = {
+  roomCode:null,playerName:'',isHost:false,isScorer:false,
+  mode:'own',game:null,popup:null,popupDraft:''
+};
+
+function fcEmptyRounds(){const r={};FC_ROUNDS.forEach((_,i)=>r[i]=null);return r;}
+function fcTotal(rounds){return Object.values(rounds||{}).reduce((a,v)=>a+(v??0),0);}
+
+// ═══════════════════════════════════════════════
+// 5 CROWNS FIREBASE ACTIONS
+// ═══════════════════════════════════════════════
+function fcRef(p){return db.ref('fivecrowns/'+FC.roomCode+(p?'/'+p:''));}
+
+async function fcCreate(){
+  const name=val('nameInput')||STORED_NAME;
+  if(!name){flash('Enter your name!');return;}
+  FC.playerName=name;STORED_NAME=name;localStorage.setItem('gn_name',name);
+  const mode=FC.mode;FC.isHost=true;FC.isScorer=true;
+  let code=rndCode();
+  for(let i=0;i<5;i++){const sn=await db.ref('fivecrowns/'+code).once('value');if(!sn.exists())break;code=rndCode();}
+  FC.roomCode=code;
+  await db.ref('fivecrowns/'+code).set({
+    hostId:PID,scorerId:PID,mode,status:'lobby',createdAt:Date.now(),
+    players:{[PID]:{name,rounds:fcEmptyRounds()}}
+  });
+  fcListen();goScreen('fc_lobby');
+}
+
+async function fcJoin(){
+  const name=val('nameInput')||STORED_NAME;
+  const code=val('codeInput').toUpperCase();
+  if(!name){flash('Enter your name!');return;}
+  if(code.length!==4){flash('Enter 4-letter room code!');return;}
+  FC.playerName=name;STORED_NAME=name;localStorage.setItem('gn_name',name);
+  FC.roomCode=code;
+  const sn=await db.ref('fivecrowns/'+code).once('value');
+  if(!sn.exists()){flash('Room not found!');return;}
+  await db.ref('fivecrowns/'+code+'/players/'+PID).set({name,rounds:fcEmptyRounds()});
+  fcListen();goScreen('fc_lobby');
+}
+
+function fcListen(){
+  listenTo(fcRef(),sn=>{
+    if(!sn.exists())return;
+    FC.game=sn.val();
+    FC.isHost=FC.game.hostId===PID;
+    FC.isScorer=FC.game.scorerId===PID;
+    FC.mode=FC.game.mode||'own';
+    const t=FC.game.status==='lobby'?'fc_lobby':'fc_game';
+    if(A.screen!==t){goScreen(t);}else{render();}
+  });
+}
+
+async function fcStartGame(){await fcRef('status').set('playing');}
+
+function fcCanEdit(pid){
+  if(FC.mode==='central')return FC.isScorer;
+  return pid===PID;
+}
+
+function fcOpenPopup(pid,roundIdx){
+  if(!fcCanEdit(pid))return;
+  FC.popup={pid,roundIdx};
+  const cur=FC.game?.players?.[pid]?.rounds?.[roundIdx];
+  FC.popupDraft=cur!=null?String(cur):'';
+  render();
+}
+function fcClosePopup(){FC.popup=null;render();}
+
+async function fcSetScore(pid,roundIdx,v){
+  await fcRef('players/'+pid+'/rounds/'+roundIdx).set(v);
+  FC.popup=null;render();
+}
+
+async function fcClearScore(pid,roundIdx){
+  await fcRef('players/'+pid+'/rounds/'+roundIdx).set(null);
+  FC.popup=null;render();
+}
+
+// ═══════════════════════════════════════════════
+// 5 CROWNS SCREENS
+// ═══════════════════════════════════════════════
+function rFCSetup(){
+  return `<div class="screen">
+  <button class="back-btn w500" onclick="goHub()">← Games</button>
+  <h1 class="title w500" style="font-size:2rem;background:linear-gradient(135deg,#c8a4ff,#4cc9f0);-webkit-background-clip:text;-webkit-text-fill-color:transparent">🃏 5 Crowns</h1>
+  <div class="card" style="display:flex;flex-direction:column;gap:.75rem">
+    <div><label>Your Name</label><input id="nameInput" placeholder="Enter your name" value="${h(STORED_NAME)}" autocomplete="off"/></div>
+    <div>
+      <label>Scoring Mode</label>
+      <div class="mode-sel">
+        <div class="mode-btn ${FC.mode==='own'?'active':''}" onclick="FC.mode='own';render()">
+          <div class="mi">📱</div><div class="mt">Own Device</div><div class="md">Each player enters their own score</div>
+        </div>
+        <div class="mode-btn ${FC.mode==='central'?'active':''}" onclick="FC.mode='central';render()">
+          <div class="mi">📋</div><div class="mt">Central Scorer</div><div class="md">One person enters all scores</div>
+        </div>
+      </div>
+    </div>
+    <button class="btn" style="background:linear-gradient(135deg,#7b2fff,#4cc9f0);color:#fff" onclick="fcCreate()">Create Game</button>
+    <div class="muted">— or join —</div>
+    <div><label>Room Code</label>
+      <input id="codeInput" placeholder="e.g. X7K2" maxlength="4" autocomplete="off"
+        style="text-transform:uppercase;letter-spacing:.2em;font-size:1.3rem;text-align:center"/>
+    </div>
+    <button class="btn btn-ghost" onclick="fcJoin()">Join Game →</button>
+  </div>
+  <div id="flash" class="flash" style="opacity:0"></div>
+</div>`;
+}
+
+function rFCLobby(){
+  const ps=FC.game?.players||{};
+  return `<div class="screen">
+  <button class="back-btn w500" onclick="goHub()">← Games</button>
+  <h1 class="title w500" style="font-size:1.8rem;background:linear-gradient(135deg,#c8a4ff,#4cc9f0);-webkit-background-clip:text;-webkit-text-fill-color:transparent">🃏 5 Crowns</h1>
+  <div class="card" style="text-align:center">
+    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.3rem">Room Code</div>
+    <div class="code-box">${h(FC.roomCode)}</div>
+    <div style="margin-top:.4rem;font-size:.72rem;color:var(--muted)">Mode: ${FC.mode==='central'?'Central Scorer':'Own Device'}</div>
+  </div>
+  <div class="card">
+    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem">Players (${Object.values(ps).length})</div>
+    <div style="display:flex;flex-wrap:wrap">${Object.values(ps).map(p=>`<div class="chip"><div class="dot"></div>${h(p.name)}</div>`).join('')}</div>
+  </div>
+  ${FC.isHost
+    ?`<button class="btn btn-green" onclick="fcStartGame()">Start Game →</button><p class="muted">You're the host</p>`
+    :`<p class="muted">⏳ Waiting for host to start...</p>`}
+  <div id="flash" class="flash" style="opacity:0"></div>
+</div>`;
+}
+
+function rFCGame(){
+  const players=FC.game?.players||{};
+  const pids=Object.keys(players);
+  const totals=pids.map(pid=>fcTotal(players[pid]?.rounds||{}));
+  const anyScore=pids.some(pid=>Object.values(players[pid]?.rounds||{}).some(v=>v!=null));
+  const minTotal=anyScore?Math.min(...totals):null;
+
+  let html=`<div class="screen" style="padding:0;gap:0">`;
+
+  // Top bar
+  html+=`<div style="width:100%;background:#0f0f1a;padding:.6rem 1rem;display:flex;align-items:center;gap:.6rem;position:sticky;top:0;z-index:20;border-bottom:1px solid rgba(255,255,255,.06)">
+    <button class="back-btn" style="flex-shrink:0" onclick="goHub()">← Hub</button>
+    <span class="title" style="font-size:1.2rem;flex:1;text-align:center;background:linear-gradient(135deg,#c8a4ff,#4cc9f0);-webkit-background-clip:text;-webkit-text-fill-color:transparent">🃏 5 Crowns</span>
+    <span class="badge">${FC.mode==='central'?(FC.isScorer?'Scoring':'Watching'):'Own Device'}</span>
+  </div>`;
+
+  html+=`<div style="width:100%;padding:.5rem;overflow:hidden"><div class="y-scroll">`;
+  html+=`<table class="y-table"><thead class="y-thead"><tr>`;
+  html+=`<th class="sticky-col" style="min-width:110px;text-align:left;padding-left:.7rem">Round</th>`;
+  pids.forEach((pid,i)=>{
+    const isLeader=anyScore&&totals[i]===minTotal;
+    html+=`<th style="min-width:72px${isLeader?';background:#1a3a10':''};">${h(players[pid]?.name||'')}${isLeader?' 🏆':''}</th>`;
+  });
+  html+=`</tr></thead><tbody>`;
+
+  FC_ROUNDS.forEach((rd,ri)=>{
+    const alt=ri%2===1?'y-alt':'';
+    html+=`<tr class="${alt}"><td class="y-cat-td" style="min-width:110px">
+      <div class="y-cat-name">Round ${rd.r}</div>
+      <div class="y-cat-desc">${rd.wild} wild · ${rd.cards} cards</div>
+    </td>`;
+    pids.forEach(pid=>{
+      const v=players[pid]?.rounds?.[ri]??null;
+      const canEdit=fcCanEdit(pid);
+      const isEmpty=v===null;
+      html+=`<td class="y-score-td"><div class="cell-tap ${canEdit?'can':'ro'} ${isEmpty?'empty':'scored'}"
+        onclick="${canEdit?`fcOpenPopup('${pid}',${ri})`:''}">
+        ${isEmpty?'—':v}
+      </div></td>`;
+    });
+    html+=`</tr>`;
+  });
+
+  // Totals row
+  html+=`<tr class="y-grand"><td class="y-cat-td" style="background:#2d5a2d"><div class="y-grand-name">Total</div><div style="font-size:.58rem;color:rgba(245,233,200,.6)">Lower wins</div></td>`;
+  pids.forEach((pid,i)=>{
+    const isLeader=anyScore&&totals[i]===minTotal;
+    html+=`<td class="y-score-td" style="${isLeader?'background:#0f9b58':''}">
+      <div class="cell-tap ro grand-val">
+        ${isLeader?`<span class="leader-star">★</span>`:''}${totals[i]}
+      </div></td>`;
+  });
+  html+=`</tr></tbody></table></div></div>`;
+
+  html+=`<p class="muted" style="padding:.5rem 1rem">Tap your score cell to enter · Lower score wins 🏆</p>`;
+
+  // Popup
+  if(FC.popup){
+    const {pid,roundIdx}=FC.popup;
+    const rd=FC_ROUNDS[roundIdx];
+    const pname=players[pid]?.name||'';
+    const curVal=players[pid]?.rounds?.[roundIdx]??null;
+    const fcDisp=FC.popupDraft||(curVal!=null?String(curVal):'');
+    html+=`<div class="popup-ov" id="fc-popup-ov">
+    <div class="popup-bx" style="background:#1a1a2e;border:1px solid rgba(200,164,255,.2)">
+      <div class="popup-ttl" style="color:#f0f0f0">Round ${rd.r} — ${rd.wild} wild</div>
+      <div class="popup-dsc" style="color:#888">${h(pname)}'s score · ${rd.cards} cards dealt</div>
+      <div id="fc-np-disp" style="background:rgba(123,47,255,.15);border-radius:8px;padding:.3rem 1rem;text-align:center;font-size:2.2rem;font-weight:900;color:#f0f0f0;margin-bottom:.55rem;min-height:2.7rem;letter-spacing:.05em">${fcDisp||'—'}</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:.4rem">
+        ${[7,8,9,4,5,6,1,2,3].map(n=>`<button class="p-btn" style="font-size:1.05rem;padding:.62rem 0;background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.15);color:#f0f0f0" onclick="fcNumpad('${n}')">${n}</button>`).join('')}
+        <button class="p-btn" style="font-size:1.15rem;padding:.62rem 0;background:rgba(233,69,96,.15);border-color:rgba(233,69,96,.35);color:#ff8fa3" onclick="fcNumpad('back')">⌫</button>
+        <button class="p-btn" style="font-size:1.05rem;padding:.62rem 0;background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.15);color:#f0f0f0" onclick="fcNumpad('0')">0</button>
+        <button class="p-btn" style="background:#0f9b58;color:#fff;border-color:#0f9b58;font-size:1.15rem;padding:.62rem 0" onclick="fcNumpadOk('${pid}',${roundIdx})">✓</button>
+      </div>
+      ${curVal!==null?`<button class="p-btn" style="color:#666;font-size:.72rem;margin-bottom:.35rem;width:100%;background:transparent;border-color:rgba(255,255,255,.1)" onclick="fcClearScore('${pid}',${roundIdx})">Clear score</button>`:''}
+      <button class="p-cancel" style="border-color:rgba(255,255,255,.15);color:#666" onclick="fcClosePopup()">Cancel</button>
+    </div></div>`;
+    // Close on overlay tap
+  }
+
+  html+=`</div>`;
+  return html;
+}
+
+
+
+// ═══════════════════════════════════════════════
+// QWIRKLE STATE
+// ═══════════════════════════════════════════════
+let QK = {
+  roomCode:null,playerName:'',isHost:false,isScorer:false,
+  mode:'own',game:null,popup:null,numpadDraft:''
+};
+
+function qkTotal(turns){return Object.values(turns||{}).reduce((a,v)=>a+(v||0),0);}
+function qkLastTurn(turns){
+  const entries=Object.entries(turns||{});
+  return entries.length?entries[entries.length-1][1]:null;
+}
+
+// ═══════════════════════════════════════════════
+// QWIRKLE FIREBASE
+// ═══════════════════════════════════════════════
+function qkRef(p){return db.ref('qwirkle/'+QK.roomCode+(p?'/'+p:''));}
+
+async function qkCreate(){
+  const name=val('nameInput')||STORED_NAME;
+  if(!name){flash('Enter your name!');return;}
+  QK.playerName=name;STORED_NAME=name;localStorage.setItem('gn_name',name);
+  QK.isHost=true;QK.isScorer=true;
+  const mode=QK.mode;
+  let code=rndCode();
+  for(let i=0;i<5;i++){const sn=await db.ref('qwirkle/'+code).once('value');if(!sn.exists())break;code=rndCode();}
+  QK.roomCode=code;
+  await db.ref('qwirkle/'+code).set({
+    hostId:PID,scorerId:PID,mode,status:'lobby',createdAt:Date.now(),
+    players:{[PID]:{name,turns:{}}}
+  });
+  qkListen();goScreen('qk_lobby');
+}
+
+async function qkJoin(){
+  const name=val('nameInput')||STORED_NAME;
+  const code=val('codeInput').toUpperCase();
+  if(!name){flash('Enter your name!');return;}
+  if(code.length!==4){flash('Enter 4-letter room code!');return;}
+  QK.playerName=name;STORED_NAME=name;localStorage.setItem('gn_name',name);
+  QK.roomCode=code;
+  const sn=await db.ref('qwirkle/'+code).once('value');
+  if(!sn.exists()){flash('Room not found!');return;}
+  await db.ref('qwirkle/'+code+'/players/'+PID).set({name,turns:{}});
+  qkListen();goScreen('qk_lobby');
+}
+
+function qkListen(){
+  listenTo(qkRef(),sn=>{
+    if(!sn.exists())return;
+    QK.game=sn.val();
+    QK.isHost=QK.game.hostId===PID;
+    QK.isScorer=QK.game.scorerId===PID;
+    QK.mode=QK.game.mode||'own';
+    const t=QK.game.status==='lobby'?'qk_lobby':'qk_game';
+    if(A.screen!==t){goScreen(t);}else{render();}
+  });
+}
+
+async function qkStartGame(){await qkRef('status').set('playing');}
+
+function qkCanEdit(pid){
+  if(QK.mode==='central')return QK.isScorer;
+  return pid===PID;
+}
+
+function qkOpenPopup(pid){
+  if(!qkCanEdit(pid))return;
+  QK.popup={pid};QK.numpadDraft='';render();
+}
+function qkClosePopup(){QK.popup=null;render();}
+
+function qkNumpad(d){
+  if(d==='back') QK.numpadDraft=QK.numpadDraft.slice(0,-1);
+  else if(QK.numpadDraft.length<3) QK.numpadDraft+=d;
+  const el=document.getElementById('qk-np-disp');
+  if(el) el.textContent=QK.numpadDraft||'—';
+}
+
+async function qkNumpadOk(pid){
+  const v=parseInt(QK.numpadDraft,10);
+  if(isNaN(v)||v<0){flash('Enter a score first!');return;}
+  await qkAddScore(pid,v);
+}
+
+async function qkAddScore(pid,pts){
+  const turns=QK.game?.players?.[pid]?.turns||{};
+  const nextIdx=Object.keys(turns).length;
+  await qkRef('players/'+pid+'/turns/'+nextIdx).set(pts);
+  QK.popup=null;render();
+}
+
+async function qkUndo(pid){
+  const turns=QK.game?.players?.[pid]?.turns||{};
+  const keys=Object.keys(turns);
+  if(!keys.length)return;
+  const lastKey=keys[keys.length-1];
+  await qkRef('players/'+pid+'/turns/'+lastKey).remove();
+  QK.popup=null;render();
+}
+
+async function qkReset(){
+  if(!confirm('Reset all scores?'))return;
+  const pids=Object.keys(QK.game?.players||{});
+  const upd={};
+  pids.forEach(pid=>upd['players/'+pid+'/turns']={});
+  await qkRef().update(upd);
+}
+
+// ═══════════════════════════════════════════════
+// QWIRKLE SCREENS
+// ═══════════════════════════════════════════════
+function rQKSetup(){
+  return `<div class="screen">
+  <button class="back-btn w500" onclick="goHub()">← Games</button>
+  <h1 class="title w500" style="font-size:2rem;background:linear-gradient(135deg,#4cc9f0,#0f9b58);-webkit-background-clip:text;-webkit-text-fill-color:transparent">🎯 Qwirkle</h1>
+  <div class="card" style="display:flex;flex-direction:column;gap:.75rem">
+    <div><label>Your Name</label><input id="nameInput" placeholder="Enter your name" value="${h(STORED_NAME)}" autocomplete="off"/></div>
+    <div>
+      <label>Scoring Mode</label>
+      <div class="mode-sel">
+        <div class="mode-btn ${QK.mode==='own'?'active':''}" onclick="QK.mode='own';render()">
+          <div class="mi">📱</div><div class="mt">Own Device</div><div class="md">Each player adds their own score</div>
+        </div>
+        <div class="mode-btn ${QK.mode==='central'?'active':''}" onclick="QK.mode='central';render()">
+          <div class="mi">📋</div><div class="mt">Central Scorer</div><div class="md">One person tracks all scores</div>
+        </div>
+      </div>
+    </div>
+    <button class="btn" style="background:linear-gradient(135deg,#4cc9f0,#0f9b58);color:#fff" onclick="qkCreate()">Create Game</button>
+    <div class="muted">— or join —</div>
+    <div><label>Room Code</label>
+      <input id="codeInput" placeholder="e.g. X7K2" maxlength="4" autocomplete="off"
+        style="text-transform:uppercase;letter-spacing:.2em;font-size:1.3rem;text-align:center"/>
+    </div>
+    <button class="btn btn-ghost" onclick="qkJoin()">Join Game →</button>
+  </div>
+  <div id="flash" class="flash" style="opacity:0"></div>
+</div>`;
+}
+
+function rQKLobby(){
+  const ps=QK.game?.players||{};
+  return `<div class="screen">
+  <button class="back-btn w500" onclick="goHub()">← Games</button>
+  <h1 class="title w500" style="font-size:1.8rem;background:linear-gradient(135deg,#4cc9f0,#0f9b58);-webkit-background-clip:text;-webkit-text-fill-color:transparent">🎯 Qwirkle</h1>
+  <div class="card" style="text-align:center">
+    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.3rem">Room Code</div>
+    <div class="code-box">${h(QK.roomCode)}</div>
+    <div style="margin-top:.4rem;font-size:.72rem;color:var(--muted)">Mode: ${QK.mode==='central'?'Central Scorer':'Own Device'}</div>
+  </div>
+  <div class="card">
+    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem">Players (${Object.values(ps).length})</div>
+    <div style="display:flex;flex-wrap:wrap">${Object.values(ps).map(p=>`<div class="chip"><div class="dot"></div>${h(p.name)}</div>`).join('')}</div>
+  </div>
+  ${QK.isHost
+    ?`<button class="btn btn-green" onclick="qkStartGame()">Start Game →</button><p class="muted">You're the host</p>`
+    :`<p class="muted">⏳ Waiting for host to start...</p>`}
+  <div id="flash" class="flash" style="opacity:0"></div>
+</div>`;
+}
+
+function rQKGame(){
+  const players=QK.game?.players||{};
+  const pids=Object.keys(players);
+  const totals=pids.map(pid=>qkTotal(players[pid]?.turns));
+  const maxTotal=Math.max(...totals,0);
+  const anyScore=totals.some(t=>t>0);
+
+  let html=`<div class="screen" style="padding:0;gap:0">`;
+
+  // Top bar
+  html+=`<div style="width:100%;background:#0f0f1a;padding:.6rem 1rem;display:flex;align-items:center;gap:.6rem;position:sticky;top:0;z-index:20;border-bottom:1px solid rgba(255,255,255,.06)">
+    <button class="back-btn" style="flex-shrink:0" onclick="goHub()">← Hub</button>
+    <span class="title" style="font-size:1.2rem;flex:1;text-align:center;background:linear-gradient(135deg,#4cc9f0,#0f9b58);-webkit-background-clip:text;-webkit-text-fill-color:transparent">🎯 Qwirkle</span>
+    ${QK.isHost?`<button class="back-btn" onclick="qkReset()" style="font-size:.68rem">Reset</button>`:`<span class="badge">${QK.mode==='central'?'Watching':'Own'}</span>`}
+  </div>`;
+
+  // Player cards grid
+  html+=`<div style="padding:.75rem;display:grid;grid-template-columns:repeat(${pids.length<=3?pids.length:'auto-fill'},minmax(140px,1fr));gap:.65rem;width:100%">`;
+  pids.forEach((pid,i)=>{
+    const p=players[pid];
+    const total=totals[i];
+    const last=qkLastTurn(p?.turns);
+    const isLeader=anyScore&&total===maxTotal;
+    const canEdit=qkCanEdit(pid);
+    html+=`<div onclick="${canEdit?`qkOpenPopup('${pid}')`:''}"
+      style="background:${isLeader?'rgba(15,155,88,.18)':'rgba(255,255,255,.05)'};border:2px solid ${isLeader?'rgba(15,155,88,.5)':'rgba(255,255,255,.08)'};border-radius:16px;padding:1rem .75rem;text-align:center;cursor:${canEdit?'pointer':'default'};user-select:none;transition:transform .12s;-webkit-tap-highlight-color:transparent"
+      ontouchstart="this.style.transform='scale(.97)'" ontouchend="this.style.transform='scale(1)'">
+      ${isLeader?`<div style="font-size:.6rem;font-weight:900;color:#5eff9e;letter-spacing:.06em;margin-bottom:.15rem">👑 LEADING</div>`:`<div style="min-height:1rem"></div>`}
+      <div style="font-size:.85rem;font-weight:800;color:${isLeader?'#5eff9e':'var(--text)'};margin-bottom:.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${h(p?.name||'')}</div>
+      <div style="font-size:3rem;font-weight:900;color:${isLeader?'#5eff9e':'var(--gold)'};line-height:1.05;margin:.15rem 0">${total}</div>
+      <div style="font-size:.72rem;color:var(--muted);min-height:1.1rem">${last!=null?`Last: +${last}`:''}</div>
+      ${canEdit?`<div style="margin-top:.55rem;background:rgba(255,255,255,.07);border-radius:8px;padding:.28rem;font-size:.7rem;font-weight:700;color:var(--muted)">+ Add score</div>`:``}
+    </div>`;
+  });
+  html+=`</div>`;
+
+  // Score history (last 5 turns across all players)
+  const allTurns=[];
+  pids.forEach(pid=>{
+    const turns=players[pid]?.turns||{};
+    Object.entries(turns).forEach(([idx,pts])=>{
+      allTurns.push({name:players[pid]?.name,pts,idx:parseInt(idx)});
+    });
+  });
+  if(allTurns.length){
+    const recent=allTurns.sort((a,b)=>b.idx-a.idx).slice(0,6);
+    html+=`<div style="width:100%;padding:0 .75rem .75rem">
+    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem">Recent Turns</div>
+    <div style="display:flex;flex-wrap:wrap;gap:.3rem">
+      ${recent.map(t=>`<div style="background:rgba(255,255,255,.06);border-radius:8px;padding:.3rem .65rem;font-size:.78rem;font-weight:700"><span style="color:var(--muted)">${h(t.name)}</span> <span style="color:var(--gold)">+${t.pts}</span></div>`).join('')}
+    </div></div>`;
+  }
+
+  // Popup
+  if(QK.popup){
+    const {pid}=QK.popup;
+    const p=players[pid];
+    const last=qkLastTurn(p?.turns);
+    html+=`<div class="popup-ov" id="qk-popup-ov">
+    <div class="popup-bx" style="background:#1a1a2e;border:1px solid rgba(76,201,240,.25)">
+      <div class="popup-ttl" style="color:#f0f0f0">${h(p?.name)}'s Turn</div>
+      <div class="popup-dsc" style="color:#888">Total so far: ${qkTotal(p?.turns)} pts</div>
+      <button style="width:100%;background:linear-gradient(135deg,#f5a623,#e94560);color:#fff;border:none;border-radius:8px;padding:.65rem;font-size:.95rem;font-weight:900;cursor:pointer;margin-bottom:.6rem;letter-spacing:.02em" onclick="qkAddScore('${pid}',12)">🌟 Qwirkle! — 12 pts</button>
+      <div id="qk-np-disp" style="background:rgba(76,201,240,.1);border-radius:8px;padding:.3rem;text-align:center;font-size:2.2rem;font-weight:900;color:#f0f0f0;margin-bottom:.52rem;min-height:2.7rem;letter-spacing:.05em">${QK.numpadDraft||'—'}</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:.4rem">
+        ${[7,8,9,4,5,6,1,2,3].map(n=>`<button class="p-btn" style="font-size:1.05rem;padding:.62rem 0;background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.15);color:#f0f0f0" onclick="qkNumpad('${n}')">${n}</button>`).join('')}
+        <button class="p-btn" style="font-size:1.15rem;padding:.62rem 0;background:rgba(233,69,96,.15);border-color:rgba(233,69,96,.35);color:#ff8fa3" onclick="qkNumpad('back')">⌫</button>
+        <button class="p-btn" style="font-size:1.05rem;padding:.62rem 0;background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.15);color:#f0f0f0" onclick="qkNumpad('0')">0</button>
+        <button class="p-btn" style="background:#0f9b58;color:#fff;border-color:#0f9b58;font-size:1.15rem;padding:.62rem 0" onclick="qkNumpadOk('${pid}')">✓</button>
+      </div>
+      ${last!=null?`<button class="p-btn" style="color:#888;font-size:.72rem;margin-bottom:.35rem;width:100%;background:transparent;border-color:rgba(255,255,255,.1)" onclick="qkUndo('${pid}')">↩ Undo last turn (+${last})</button>`:''}
+      <button class="p-cancel" style="border-color:rgba(255,255,255,.15);color:#666" onclick="qkClosePopup()">Cancel</button>
+    </div></div>`;
+  }
+
+  html+=`</div>`;
+  return html;
+}
+
+
+// ═══════════════════════════════════════════════
+// FISHBOWL
+// ═══════════════════════════════════════════════
+const FB_ROUND_NAMES=['📢 Describe it','💬 One Word','🎭 Act it out'];
+const FB_WORDS_EACH=5;
+const TEAM_COLS=['#e94560','#4cc9f0','#0f9b58','#f5a623'];
+
+let FB={roomCode:null,playerName:'',isHost:false,game:null,timerInt:null,localWords:{}};
+
+function fbRef(p){return db.ref('fishbowl/'+FB.roomCode+(p?'/'+p:''));}
+function fbActivePid(){
+  const g=FB.game;if(!g)return null;
+  const t=g.teams?.[g.currentTeamIdx];if(!t)return null;
+  const m=t.playerIds||[];if(!m.length)return null;
+  return m[(t.currentMemberIdx||0)%m.length];
+}
+function fbMyTeam(){return FB.game?.players?.[PID]?.teamIdx??-1;}
+function fbIAmActive(){return fbActivePid()===PID;}
+function fbMyTeamActive(){const g=FB.game;return g&&fbMyTeam()===g.currentTeamIdx;}
+
+async function fbCreate(){
+  const name=val('nameInput')||STORED_NAME;
+  if(!name){flash('Enter your name!');return;}
+  FB.playerName=name;STORED_NAME=name;localStorage.setItem('gn_name',name);
+  FB.isHost=true;
+  let code=rndCode();
+  for(let i=0;i<5;i++){const sn=await db.ref('fishbowl/'+code).once('value');if(!sn.exists())break;code=rndCode();}
+  FB.roomCode=code;
+  const nt=parseInt(document.querySelector('input[name=nteams]:checked')?.value||2);
+  const ts=parseInt(document.querySelector('input[name=tsecs]:checked')?.value||60);
+  const teams={};
+  for(let i=0;i<nt;i++)teams[i]={name:'Team '+(i+1),playerIds:[],currentMemberIdx:0,scores:{1:0,2:0,3:0}};
+  await db.ref('fishbowl/'+code).set({
+    hostId:PID,status:'lobby',numTeams:nt,timerSecs:ts,createdAt:Date.now(),teams,
+    players:{[PID]:{name,teamIdx:-1,wordsSubmitted:false}}
+  });
+  fbListen();goScreen('fb_lobby');
+}
+
+async function fbJoin(){
+  const name=val('nameInput')||STORED_NAME;
+  const code=val('codeInput').toUpperCase();
+  if(!name){flash('Enter your name!');return;}
+  if(code.length!==4){flash('Enter 4-letter room code!');return;}
+  FB.playerName=name;STORED_NAME=name;localStorage.setItem('gn_name',name);
+  FB.roomCode=code;
+  const sn=await db.ref('fishbowl/'+code).once('value');
+  if(!sn.exists()){flash('Room not found!');return;}
+  await db.ref('fishbowl/'+code+'/players/'+PID).set({name,teamIdx:-1,wordsSubmitted:false});
+  fbListen();goScreen('fb_lobby');
+}
+
+function fbListen(){
+  listenTo(fbRef(),sn=>{
+    if(!sn.exists())return;
+    FB.game=sn.val();FB.isHost=FB.game.hostId===PID;
+    const g=FB.game,st=g.status;
+    const was=A.screen;
+    if(st==='lobby'&&was!=='fb_lobby')goScreen('fb_lobby');
+    else if(st==='entering'&&was!=='fb_entering')goScreen('fb_entering');
+    else if(st==='teaming'){const t=FB.isHost?'fb_teaming':'fb_team_wait';if(was!==t)goScreen(t);}
+    else if(st==='playing'){
+      let t;
+      if(fbIAmActive())t='fb_playing';
+      else if(fbMyTeamActive())t='fb_guessing';
+      else t='fb_watching';
+      if(was!==t)goScreen(t);else render();
+    }
+    else if(st==='roundEnd'&&was!=='fb_roundend')goScreen('fb_roundend');
+    else if(st==='finished'&&was!=='fb_finished')goScreen('fb_finished');
+    else render();
+  });
+}
+
+async function fbStartEntering(){await fbRef('status').set('entering');}
+
+async function fbSubmitWords(){
+  const words={};
+  for(let i=0;i<FB_WORDS_EACH;i++){
+    const w=(FB.localWords[i]||'').trim();
+    if(!w){flash('Fill in word '+(i+1)+'!');return;}
+    words[i]=w;
+  }
+  await fbRef('players/'+PID).update({words,wordsSubmitted:true});
+  render();
+}
+
+async function fbStartTeaming(){
+  const players=FB.game?.players||{};
+  const allDone=Object.values(players).every(p=>p.wordsSubmitted);
+  if(!allDone&&!confirm('Not everyone has submitted words. Continue anyway?'))return;
+  await fbRef('status').set('teaming');
+}
+
+async function fbAutoAssign(){
+  const pids=Object.keys(FB.game?.players||{});
+  const shuffled=[...pids].sort(()=>Math.random()-.5);
+  const nt=FB.game?.numTeams||2;
+  const upd={};const ta={};
+  for(let t=0;t<nt;t++)ta[t]=[];
+  shuffled.forEach((pid,i)=>{const t=i%nt;upd['players/'+pid+'/teamIdx']=t;ta[t].push(pid);});
+  for(let t=0;t<nt;t++)upd['teams/'+t+'/playerIds']=ta[t];
+  await fbRef().update(upd);
+}
+
+async function fbAssignPlayer(pid,toTeam){
+  const g=FB.game;const nt=g.numTeams||2;
+  const oldTeam=g.players[pid]?.teamIdx??-1;
+  const upd={['players/'+pid+'/teamIdx']:toTeam};
+  for(let t=0;t<nt;t++){
+    let arr=[...(g.teams[t]?.playerIds||[])];
+    if(t===oldTeam)arr=arr.filter(p=>p!==pid);
+    if(t===toTeam&&!arr.includes(pid))arr.push(pid);
+    upd['teams/'+t+'/playerIds']=arr;
+  }
+  await fbRef().update(upd);
+}
+
+async function fbStartGame(){
+  const g=FB.game;const players=g.players||{};
+  if(Object.values(players).some(p=>p.teamIdx<0)){flash('Assign all players to a team!');return;}
+  const allWords={};
+  Object.entries(players).forEach(([pid,p])=>{
+    Object.entries(p.words||{}).forEach(([idx,word])=>{allWords[pid+'_'+idx]={word};});
+  });
+  const nt=g.numTeams||2;
+  const upd={status:'playing',round:1,currentTeamIdx:0,bowl:{...allWords},allWords,
+    turnState:{active:false,timerEnd:0,currentWordId:null,gotIds:{}}};
+  for(let t=0;t<nt;t++){upd['teams/'+t+'/scores']={1:0,2:0,3:0};upd['teams/'+t+'/currentMemberIdx']=0;}
+  await fbRef().update(upd);
+}
+
+async function fbStartTurn(){
+  const bowl=FB.game?.bowl||{};
+  const ids=Object.keys(bowl);if(!ids.length)return;
+  const wordId=ids[Math.floor(Math.random()*ids.length)];
+  await fbRef('turnState').update({active:true,timerEnd:Date.now()+(FB.game?.timerSecs||60)*1000,currentWordId:wordId,gotIds:{}});
+}
+
+async function fbGotWord(){
+  const g=FB.game;const ts=g.turnState||{};
+  const wordId=ts.currentWordId;if(!wordId)return;
+  const gotIds={...(ts.gotIds||{})};gotIds[wordId]=true;
+  const bowl={...(g.bowl||{})};delete bowl[wordId];
+  const remaining=Object.keys(bowl);
+  const teamIdx=g.currentTeamIdx;const round=g.round;
+  const curScore=g.teams?.[teamIdx]?.scores?.[round]||0;
+  const newScore=curScore+Object.keys(gotIds).length;
+  if(!remaining.length){
+    const upd={bowl,['teams/'+teamIdx+'/scores/'+round]:newScore,
+      'turnState/active':false,'turnState/currentWordId':null,'turnState/gotIds':gotIds};
+    upd.status=round>=3?'finished':'roundEnd';
+    await fbRef().update(upd);
+  } else {
+    const nextId=remaining[Math.floor(Math.random()*remaining.length)];
+    await fbRef().update({['bowl/'+wordId]:null,'turnState/currentWordId':nextId,'turnState/gotIds':gotIds});
   }
 }
 
-function getGridCols(key) {
-  // Fixed-value categories need fewer columns
-  if (["fullHouse","smStraight","lgStraight","yahtzee"].includes(key)) return "1fr 1fr";
-  if (["yahtzeBonus"].includes(key)) return "repeat(4, 1fr)";
-  // Upper section: exactly 6 options
-  if (["ones","twos","threes","fours","fives","sixes"].includes(key)) return "repeat(6, 1fr)";
-  // Variable: many options, show in rows of 6
-  return "repeat(6, 1fr)";
+async function fbSkipWord(){
+  const g=FB.game;const ts=g.turnState||{};
+  const wordId=ts.currentWordId;if(!wordId)return;
+  const others=Object.keys(g.bowl||{}).filter(id=>id!==wordId);
+  if(!others.length)return;
+  await fbRef('turnState/currentWordId').set(others[Math.floor(Math.random()*others.length)]);
 }
 
-const UPPER = [
-  { key:"ones",   label:"Aces",   desc:"Count & add only 1s — max 5"  },
-  { key:"twos",   label:"Twos",   desc:"Count & add only 2s — max 10" },
-  { key:"threes", label:"Threes", desc:"Count & add only 3s — max 15" },
-  { key:"fours",  label:"Fours",  desc:"Count & add only 4s — max 20" },
-  { key:"fives",  label:"Fives",  desc:"Count & add only 5s — max 25" },
-  { key:"sixes",  label:"Sixes",  desc:"Count & add only 6s — max 30" },
-];
-
-const LOWER = [
-  { key:"threeOfKind", label:"3 of a Kind",   desc:"At least 3 alike — add all 5 dice" },
-  { key:"fourOfKind",  label:"4 of a Kind",   desc:"At least 4 alike — add all 5 dice" },
-  { key:"fullHouse",   label:"Full House",    desc:"3 of one + 2 of another — scores 25" },
-  { key:"smStraight",  label:"Sm. Straight",  desc:"4 sequential dice — scores 30"       },
-  { key:"lgStraight",  label:"Lg. Straight",  desc:"5 sequential dice — scores 40"       },
-  { key:"yahtzee",     label:"YAHTZEE",       desc:"5 of a kind — scores 50"             },
-  { key:"chance",      label:"Chance",        desc:"Any roll — add all 5 dice"           },
-  { key:"yahtzeBonus", label:"Yahtzee Bonus", desc:"Extra Yahtzee — 100 pts each"        },
-];
-
-const BONUS_THRESHOLD = 63;
-const BONUS_SCORE = 35;
-
-function emptyScores() {
-  const s = {};
-  [...UPPER,...LOWER].forEach(c => s[c.key]=null);
-  return s;
+async function fbEndTurn(){
+  const g=FB.game;if(!g?.turnState?.active)return;
+  const gotIds=g.turnState.gotIds||{};
+  const numGot=Object.keys(gotIds).length;
+  const teamIdx=g.currentTeamIdx;const round=g.round;
+  const nt=g.numTeams||2;
+  const members=g.teams?.[teamIdx]?.playerIds||[];
+  const curMember=g.teams?.[teamIdx]?.currentMemberIdx||0;
+  const curScore=g.teams?.[teamIdx]?.scores?.[round]||0;
+  const upd={
+    'turnState/active':false,'turnState/currentWordId':null,
+    currentTeamIdx:(teamIdx+1)%nt,
+    ['teams/'+teamIdx+'/scores/'+round]:curScore+numGot,
+    ['teams/'+teamIdx+'/currentMemberIdx']:(curMember+1)%Math.max(1,members.length)
+  };
+  await fbRef().update(upd);
 }
 
-function calcUpper(s) { return UPPER.reduce((a,c)=>a+(s[c.key]??0),0); }
-function calcLower(s) { return LOWER.reduce((a,c)=>a+(s[c.key]??0),0); }
-function calcBonus(s) { return calcUpper(s)>=BONUS_THRESHOLD ? BONUS_SCORE : 0; }
-function calcGrand(s) { return calcUpper(s)+calcBonus(s)+calcLower(s); }
+async function fbNextRound(){
+  const g=FB.game;const nt=g.numTeams||2;
+  const upd={status:'playing',round:g.round+1,bowl:{...g.allWords},currentTeamIdx:0,
+    turnState:{active:false,timerEnd:0,currentWordId:null,gotIds:{}}};
+  for(let t=0;t<nt;t++){
+    const m=g.teams?.[t]?.playerIds||[];
+    upd['teams/'+t+'/currentMemberIdx']=(((g.teams?.[t]?.currentMemberIdx||0))+1)%Math.max(1,m.length);
+  }
+  await fbRef().update(upd);
+}
 
-function ScorePopup({ cat, currentVal, onSelect, onClose }) {
-  const options = getOptions(cat.key);
-  const ref = useRef();
+function fbRunTimer(){
+  if(FB.timerInt)clearInterval(FB.timerInt);
+  FB.timerInt=setInterval(()=>{
+    const te=FB.game?.turnState?.timerEnd||0;
+    const sec=Math.max(0,Math.ceil((te-Date.now())/1000));
+    const el=$id('fb-timer');
+    if(el){el.textContent=sec;el.style.color=sec<=10?'#e94560':sec<=20?'#f5a623':'#4cc9f0';}
+    if(sec<=0){clearInterval(FB.timerInt);FB.timerInt=null;if(fbIAmActive())fbEndTurn();}
+  },250);
+}
 
-  useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
-    setTimeout(() => document.addEventListener("mousedown", h), 0);
-    return () => document.removeEventListener("mousedown", h);
-  }, []);
+// ── SCREENS ──────────────────────────────────────
 
-  return (
-    <div className="popup-overlay">
-      <div className="popup-box" ref={ref}>
-        <div className="popup-title">{cat.label}</div>
-        <div className="popup-desc">{cat.desc}</div>
-        <div className="popup-grid" style={{gridTemplateColumns: getGridCols(cat.key)}}>
-          {options.map(opt => (
-            <button
-              key={opt}
-              className={["score-btn", opt===0?"scratch":"", currentVal===opt?"selected":""].join(" ")}
-              onClick={() => { onSelect(opt); onClose(); }}
-            >
-              {opt===0 ? "✕" : opt}
-            </button>
-          ))}
-        </div>
-        {currentVal !== null && (
-          <button className="score-btn" style={{marginBottom:"0.5rem", color:"#aaa", fontSize:"0.72rem", borderColor:"rgba(0,0,0,0.1)"}}
-            onClick={() => { onSelect(null); onClose(); }}>
-            Clear score
-          </button>
-        )}
-        <button className="popup-cancel" onClick={onClose}>Cancel</button>
+function rFBSetup(){
+  return `<div class="screen">
+  <button class="back-btn w500" onclick="goHub()">← Games</button>
+  <h1 class="title w500" style="font-size:1.9rem;background:linear-gradient(135deg,#e8a0ff,#e94560);-webkit-background-clip:text;-webkit-text-fill-color:transparent">🎭 Fishbowl</h1>
+  <p class="muted">Celebrity · The Hat Game · Fishbowl</p>
+  <div class="card" style="display:flex;flex-direction:column;gap:.85rem">
+    <div><label>Your Name</label><input id="nameInput" placeholder="Enter your name" value="${h(STORED_NAME)}" autocomplete="off"/></div>
+    <div>
+      <label>Number of Teams</label>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem">
+        ${[2,3,4].map(n=>`<label style="display:flex;flex-direction:column;align-items:center;background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.1);border-radius:8px;padding:.6rem;cursor:pointer;gap:.2rem"><input type="radio" name="nteams" value="${n}" ${n===2?'checked':''} style="width:auto"/><span style="font-size:1rem;font-weight:900">${n}</span><span style="font-size:.65rem;color:var(--muted)">${n==='2'?'Classic':n==='3'?'Mixed':'Chaos!'}</span></label>`).join('')}
       </div>
     </div>
-  );
-}
-
-function ScoreCell({ cat, value, onCommit }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <div
-        className={`cell-display ${value===null?"empty":value===0?"scratched":"scored"}`}
-        onClick={() => setOpen(true)}
-        title="Tap to score"
-      >
-        {value===null ? "—" : value===0 ? "✕" : value}
-      </div>
-      {open && (
-        <ScorePopup cat={cat} currentVal={value}
-          onSelect={onCommit} onClose={() => setOpen(false)} />
-      )}
-    </>
-  );
-}
-
-function App() {
-  const [players, setPlayers] = useState([
-    {name:"Player 1", scores:emptyScores()},
-    {name:"Player 2", scores:emptyScores()},
-    {name:"Player 3", scores:emptyScores()},
-    {name:"Player 4", scores:emptyScores()},
-    {name:"Player 5", scores:emptyScores()},
-    {name:"Player 6", scores:emptyScores()},
-  ]);
-  const [editingName, setEditingName] = useState(null);
-  const [nameDraft, setNameDraft] = useState("");
-
-  const setScore = useCallback((pi,key,val) => {
-    setPlayers(prev => prev.map((p,i) => i!==pi ? p : {...p, scores:{...p.scores,[key]:val}}));
-  },[]);
-
-  const removePlayer = (pi) => {
-    if (players.length<=1) return;
-    setPlayers(prev => prev.filter((_,i)=>i!==pi));
-  };
-  const addPlayer = () => {
-    if (players.length>=6) return;
-    setPlayers(prev => [...prev, {name:`Player ${prev.length+1}`, scores:emptyScores()}]);
-  };
-  const commitName = (pi) => {
-    const t = nameDraft.trim();
-    if (t) setPlayers(prev => prev.map((p,i) => i!==pi?p:{...p,name:t}));
-    setEditingName(null);
-  };
-  const resetAll = () => {
-    if (!window.confirm("Reset all scores?")) return;
-    setPlayers(prev => prev.map(p => ({...p,scores:emptyScores()})));
-  };
-
-  const colW = `${Math.max(68,Math.min(110,Math.floor(540/players.length)))}px`;
-  const sh = {background:"#2d5a2d",color:"#f5e9c8",fontSize:"0.58rem",
-    letterSpacing:"0.18em",textTransform:"uppercase",padding:"0.38rem 0.65rem",fontWeight:700};
-  const sc = {height:"38px",textAlign:"center",borderRight:"1px solid rgba(181,144,58,0.2)",padding:0,width:colW};
-  const stv = {textAlign:"center",fontSize:"0.88rem",fontWeight:700,color:"#2d1a00",width:colW,padding:"0.35rem 0"};
-
-  return (
-    <div style={{minHeight:"100vh",background:"#1a3a1a",
-      backgroundImage:"radial-gradient(ellipse at 20% 20%,rgba(40,80,40,0.5) 0%,transparent 60%),radial-gradient(ellipse at 80% 80%,rgba(20,50,20,0.6) 0%,transparent 60%)",
-      display:"flex",flexDirection:"column",alignItems:"center",padding:"2rem 0.75rem 3rem"}}>
-
-      <div style={{textAlign:"center",marginBottom:"1.4rem"}}>
-        <div style={{fontSize:"clamp(1.8rem,6vw,3rem)",fontWeight:900,color:"#f5e9c8",
-          letterSpacing:"0.15em",textTransform:"uppercase",
-          textShadow:"0 2px 8px rgba(0,0,0,0.5),0 0 30px rgba(181,144,58,0.3)",marginBottom:"0.15rem"}}>
-          Yahtzee
-        </div>
-        <div style={{color:"#b5903a",fontSize:"0.75rem",letterSpacing:"0.3em",textTransform:"uppercase"}}>Score Card</div>
-      </div>
-
-      <div style={{display:"flex",gap:"0.6rem",marginBottom:"1.3rem",flexWrap:"wrap",justifyContent:"center"}}>
-        {players.length<6 && (
-          <button onClick={addPlayer} style={{padding:"0.4rem 1rem",border:"1px solid #b5903a",
-            background:"rgba(181,144,58,0.2)",color:"#f5e9c8",fontSize:"0.7rem",letterSpacing:"0.1em",
-            textTransform:"uppercase",cursor:"pointer",fontFamily:"'Nunito', sans-serif",borderRadius:"2px"}}>
-            + Add Player
-          </button>
-        )}
-        <button onClick={resetAll} style={{padding:"0.4rem 1rem",border:"1px solid rgba(181,144,58,0.4)",
-          background:"transparent",color:"rgba(245,233,200,0.55)",fontSize:"0.7rem",letterSpacing:"0.1em",
-          textTransform:"uppercase",cursor:"pointer",fontFamily:"'Nunito', sans-serif",borderRadius:"2px"}}>
-          Reset All
-        </button>
-      </div>
-
-      <div style={{background:"rgba(245,233,200,0.97)",borderRadius:"4px",overflow:"hidden",
-        width:"100%",maxWidth:"860px",boxShadow:"0 8px 40px rgba(0,0,0,0.5),0 0 0 1px rgba(181,144,58,0.3)"}}>
-        <table style={{width:"100%",borderCollapse:"collapse"}}>
-          <thead style={{position:'sticky',top:0,zIndex:10}}>
-            <tr>
-              <th style={{...sh,width:"150px",minWidth:"120px",textAlign:"left"}}>Category</th>
-              {players.map((p,pi)=>(
-                <th key={pi} style={{...sh,textAlign:"center",padding:"0.45rem 0.2rem",
-                  fontSize:"0.75rem",width:colW,position:"relative",cursor:"pointer",fontWeight:700}}>
-                  {editingName===pi ? (
-                    <input autoFocus value={nameDraft}
-                      onChange={e=>setNameDraft(e.target.value)}
-                      onBlur={()=>commitName(pi)}
-                      onKeyDown={e=>{if(e.key==="Enter")commitName(pi);if(e.key==="Escape")setEditingName(null);}}
-                      style={{background:"transparent",border:"none",borderBottom:"1px solid #f5e9c8",
-                        color:"#f5e9c8",width:"85%",textAlign:"center",
-                        fontFamily:"inherit",fontSize:"0.75rem",outline:"none"}}
-                    />
-                  ) : (
-                    <span style={{display:"block"}}
-                      onClick={()=>{setEditingName(pi);setNameDraft(p.name);}}>
-                      {p.name}
-                      {players.length>1 && (
-                        <span onClick={e=>{e.stopPropagation();removePlayer(pi);}}
-                          style={{position:"absolute",top:3,right:4,fontSize:"0.55rem",
-                            opacity:0.5,cursor:"pointer"}} title="Remove">✕</span>
-                      )}
-                    </span>
-                  )}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td colSpan={players.length+1} style={sh}>Upper Section — score 63+ for +35 bonus</td></tr>
-            {UPPER.map((cat,ci)=>(
-              <tr key={cat.key} style={{background:ci%2===1?"rgba(181,144,58,0.06)":"transparent",
-                borderBottom:"1px solid rgba(181,144,58,0.2)"}}>
-                <td style={{padding:"0 0.6rem",height:"38px",borderRight:"2px solid rgba(181,144,58,0.3)"}}>
-                  <div style={{fontSize:"0.78rem",fontWeight:700,color:"#2d1a00"}}>{cat.label}</div>
-                  <div style={{fontSize:"0.58rem",color:"#7a5c2a"}}>{cat.desc}</div>
-                </td>
-                {players.map((p,pi)=>(
-                  <td key={pi} style={sc}>
-                    <ScoreCell cat={cat} value={p.scores[cat.key]} onCommit={v=>setScore(pi,cat.key,v)}/>
-                  </td>
-                ))}
-              </tr>
-            ))}
-
-            <tr style={{background:"rgba(181,144,58,0.12)",borderBottom:"1px solid rgba(181,144,58,0.3)"}}>
-              <td style={{padding:"0.38rem 0.6rem",fontSize:"0.7rem",fontWeight:700,color:"#5a3a00",
-                borderRight:"2px solid rgba(181,144,58,0.3)"}}>Upper Total</td>
-              {players.map((p,pi)=><td key={pi} style={stv}>{calcUpper(p.scores)}</td>)}
-            </tr>
-
-            <tr style={{background:"rgba(40,80,40,0.07)",borderBottom:"2px solid rgba(181,144,58,0.4)"}}>
-              <td style={{padding:"0 0.6rem",height:"36px",borderRight:"2px solid rgba(181,144,58,0.3)"}}>
-                <div style={{fontSize:"0.78rem",fontWeight:700,color:"#2d1a00"}}>Bonus +35</div>
-                <div style={{fontSize:"0.58rem",color:"#7a5c2a"}}>Upper total &ge; 63</div>
-              </td>
-              {players.map((p,pi)=>{
-                const upper=calcUpper(p.scores);
-                const bonus=calcBonus(p.scores);
-                const rem=Math.max(0,BONUS_THRESHOLD-upper);
-                return (
-                  <td key={pi} style={{...sc,fontWeight:700,
-                    color:bonus>0?"#2d5a2d":"#bbb"}}>
-                    {bonus>0
-                      ? <span style={{fontSize:"0.78rem",color:"#2d5a2d"}}>+35 ✓</span>
-                      : rem>0
-                        ? <span style={{fontSize:"0.62rem",color:"#bbb"}}>-{rem}</span>
-                        : "—"}
-                  </td>
-                );
-              })}
-            </tr>
-
-            <tr><td colSpan={players.length+1} style={{...sh,paddingTop:"0.45rem"}}>Lower Section</td></tr>
-            {LOWER.map((cat,ci)=>(
-              <tr key={cat.key} style={{background:ci%2===1?"rgba(181,144,58,0.06)":"transparent",
-                borderBottom:"1px solid rgba(181,144,58,0.2)"}}>
-                <td style={{padding:"0 0.6rem",height:"38px",borderRight:"2px solid rgba(181,144,58,0.3)"}}>
-                  <div style={{fontSize:"0.78rem",fontWeight:700,
-                    color:cat.key==="yahtzee"?"#2d5a2d":"#2d1a00"}}>{cat.label}</div>
-                  <div style={{fontSize:"0.58rem",color:"#7a5c2a"}}>{cat.desc}</div>
-                </td>
-                {players.map((p,pi)=>(
-                  <td key={pi} style={sc}>
-                    <ScoreCell cat={cat} value={p.scores[cat.key]} onCommit={v=>setScore(pi,cat.key,v)}/>
-                  </td>
-                ))}
-              </tr>
-            ))}
-
-            <tr style={{background:"rgba(181,144,58,0.12)",borderBottom:"2px solid rgba(181,144,58,0.4)"}}>
-              <td style={{padding:"0.38rem 0.6rem",fontSize:"0.7rem",fontWeight:700,color:"#5a3a00",
-                borderRight:"2px solid rgba(181,144,58,0.3)"}}>Lower Total</td>
-              {players.map((p,pi)=><td key={pi} style={stv}>{calcLower(p.scores)}</td>)}
-            </tr>
-
-            <tr style={{background:"#2d5a2d"}}>
-              <td style={{padding:"0.6rem 0.65rem",fontSize:"0.78rem",fontWeight:700,color:"#f5e9c8",
-                letterSpacing:"0.08em",textTransform:"uppercase"}}>Grand Total</td>
-              {(() => {
-                const grands = players.map(p => calcGrand(p.scores));
-                const maxVal = Math.max(...grands);
-                return players.map((p,pi) => {
-                  const isLeader = grands[pi] === maxVal;
-                  return (
-                    <td key={pi} style={{textAlign:"center", width:colW,
-                      background: isLeader ? "#b5903a" : "transparent",
-                      position:"relative"}}>
-                      {isLeader && <div style={{fontSize:"0.55rem",color:"#fff8e7",
-                        letterSpacing:"0.12em",textTransform:"uppercase",paddingTop:"0.3rem",
-                        opacity:0.9}}>&#9733; LEADER</div>}
-                      <div style={{fontSize:"1.1rem",fontWeight:900,color:"#f5e9c8",
-                        paddingBottom: isLeader?"0.3rem":"0",
-                        paddingTop: isLeader?"0":"0"}}>{grands[pi]}</div>
-                    </td>
-                  );
-                });
-              })()}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div style={{marginTop:"0.9rem",color:"rgba(245,233,200,0.28)",fontSize:"0.65rem",
-        letterSpacing:"0.06em",textAlign:"center"}}>
-        Tap any cell to score &bull; ✕ = scratch / zero &bull; Tap name to rename
+    <div>
+      <label>Timer per Turn</label>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem">
+        ${[30,60,90].map(s=>`<label style="display:flex;flex-direction:column;align-items:center;background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.1);border-radius:8px;padding:.6rem;cursor:pointer;gap:.2rem"><input type="radio" name="tsecs" value="${s}" ${s===60?'checked':''} style="width:auto"/><span style="font-size:1rem;font-weight:900">${s}s</span></label>`).join('')}
       </div>
     </div>
-  );
+    <button class="btn" style="background:linear-gradient(135deg,#9b59b6,#e94560);color:#fff" onclick="fbCreate()">Create Game</button>
+    <div class="muted">— or join —</div>
+    <div><label>Room Code</label><input id="codeInput" placeholder="e.g. X7K2" maxlength="4" autocomplete="off" style="text-transform:uppercase;letter-spacing:.2em;font-size:1.3rem;text-align:center"/></div>
+    <button class="btn btn-ghost" onclick="fbJoin()">Join Game →</button>
+  </div>
+  <div id="flash" class="flash" style="opacity:0"></div>
+</div>`;
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+function rFBLobby(){
+  const g=FB.game||{};const players=g.players||{};const pList=Object.values(players);
+  return `<div class="screen">
+  <button class="back-btn w500" onclick="goHub()">← Games</button>
+  <h1 class="title w500" style="font-size:1.8rem;background:linear-gradient(135deg,#e8a0ff,#e94560);-webkit-background-clip:text;-webkit-text-fill-color:transparent">🎭 Fishbowl</h1>
+  <div class="card" style="text-align:center">
+    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.3rem">Room Code</div>
+    <div class="code-box">${h(FB.roomCode)}</div>
+    <div style="margin-top:.35rem;font-size:.72rem;color:var(--muted)">${g.numTeams} teams · ${g.timerSecs}s turns · ${FB_WORDS_EACH} words each</div>
+  </div>
+  <div class="card">
+    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem">Players (${pList.length})</div>
+    <div style="display:flex;flex-wrap:wrap">${pList.map(p=>`<div class="chip"><div class="dot"></div>${h(p.name)}</div>`).join('')}</div>
+  </div>
+  ${FB.isHost?`<button class="btn" style="background:linear-gradient(135deg,#9b59b6,#e94560);color:#fff" onclick="fbStartEntering()">Everyone's in → Enter Words</button>`
+    :`<p class="muted">⏳ Waiting for host...</p>`}
+  <div id="flash" class="flash" style="opacity:0"></div>
+</div>`;
+}
+
+function rFBEntering(){
+  const g=FB.game||{};const players=g.players||{};
+  const me=players[PID]||{};
+  const submitted=me.wordsSubmitted;
+  const subCount=Object.values(players).filter(p=>p.wordsSubmitted).length;
+  const total=Object.keys(players).length;
+  if(submitted){
+    return `<div class="screen">
+    <h1 class="title" style="font-size:1.6rem;background:linear-gradient(135deg,#e8a0ff,#e94560);-webkit-background-clip:text;-webkit-text-fill-color:transparent">🎭 Fishbowl</h1>
+    <div style="font-size:3.5rem;text-align:center">✅</div>
+    <div style="text-align:center;font-weight:800;font-size:1.1rem">Words submitted!</div>
+    <p class="muted">${subCount} of ${total} players ready</p>
+    <div class="card" style="display:flex;flex-wrap:wrap">${Object.values(players).map(p=>`<div class="chip"><div class="dot" style="background:${p.wordsSubmitted?'var(--green)':'#444'}"></div>${h(p.name)}${p.wordsSubmitted?' ✓':''}</div>`).join('')}</div>
+    ${FB.isHost?`<button class="btn btn-green" onclick="fbStartTeaming()">All done → Assign Teams →</button>`:'<p class="muted">Waiting for host to continue...</p>'}
+    </div>`;
+  }
+  return `<div class="screen">
+  <h1 class="title" style="font-size:1.5rem;background:linear-gradient(135deg,#e8a0ff,#e94560);-webkit-background-clip:text;-webkit-text-fill-color:transparent">🤫 Enter Your Words</h1>
+  <p class="muted">${FB_WORDS_EACH} famous people, places or things. Keep them secret!</p>
+  <div class="card" style="display:flex;flex-direction:column;gap:.6rem">
+    ${Array.from({length:FB_WORDS_EACH},(_,i)=>`<div><label>Word ${i+1}</label>
+    <input placeholder="e.g. Taylor Swift, The Great Wall..." autocomplete="off"
+      oninput="FB.localWords[${i}]=this.value" value="${h(FB.localWords[i]||'')}"/></div>`).join('')}
+    <button class="btn" style="background:linear-gradient(135deg,#9b59b6,#e94560);color:#fff;margin-top:.3rem" onclick="fbSubmitWords()">Submit My Words ✓</button>
+  </div>
+  <div id="flash" class="flash" style="opacity:0"></div>
+</div>`;
+}
+
+function rFBTeaming(){
+  const g=FB.game||{};const players=g.players||{};const nt=g.numTeams||2;
+  const unassigned=Object.entries(players).filter(([,p])=>p.teamIdx<0);
+  return `<div class="screen">
+  <h1 class="title" style="font-size:1.5rem;background:linear-gradient(135deg,#e8a0ff,#e94560);-webkit-background-clip:text;-webkit-text-fill-color:transparent">🎭 Assign Teams</h1>
+  <button class="btn btn-ghost w500" onclick="fbAutoAssign()" style="max-width:500px">🔀 Auto-assign randomly</button>
+  <p class="muted">Tap a player to move them to the next team</p>
+  <div style="width:100%;max-width:500px;display:flex;flex-direction:column;gap:.55rem">
+    ${Array.from({length:nt},(_,t)=>{
+      const tm=g.teams?.[t]||{};
+      const members=(tm.playerIds||[]).map(pid=>({pid,name:players[pid]?.name||pid}));
+      return `<div class="card" style="border-left:3px solid ${TEAM_COLS[t]};padding:.8rem">
+        <div style="font-size:.78rem;font-weight:900;color:${TEAM_COLS[t]};margin-bottom:.35rem">${h(tm.name)}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:.3rem;min-height:1.8rem">
+          ${members.map(m=>`<div class="chip" style="cursor:pointer;border:1px solid ${TEAM_COLS[t]}" onclick="fbAssignPlayer('${m.pid}',${(t+1)%nt})">${h(m.name)} ›</div>`).join('')}
+          ${!members.length?`<span style="color:var(--muted);font-size:.75rem;align-self:center">Empty</span>`:''}
+        </div>
+      </div>`;
+    }).join('')}
+    ${unassigned.length?`<div class="card" style="border-left:3px solid #444;padding:.8rem">
+      <div style="font-size:.78rem;font-weight:900;color:#555;margin-bottom:.35rem">Unassigned</div>
+      <div style="display:flex;flex-wrap:wrap;gap:.3rem">${unassigned.map(([pid,p])=>`<div class="chip" style="cursor:pointer" onclick="fbAssignPlayer('${pid}',0)">${h(p.name)} ›</div>`).join('')}</div>
+    </div>`:''}
+  </div>
+  <button class="btn btn-green w500" style="max-width:500px" onclick="fbStartGame()">Start Game! 🎭</button>
+  <div id="flash" class="flash" style="opacity:0"></div>
+</div>`;
+}
+
+function rFBTeamWait(){
+  const me=FB.game?.players?.[PID];
+  const ti=me?.teamIdx??-1;
+  const tm=FB.game?.teams?.[ti];
+  return `<div class="screen">
+  <h1 class="title" style="font-size:1.6rem;background:linear-gradient(135deg,#e8a0ff,#e94560);-webkit-background-clip:text;-webkit-text-fill-color:transparent">🎭 Fishbowl</h1>
+  <div style="font-size:3rem;text-align:center">⏳</div>
+  <p class="muted">Host is assigning teams...</p>
+  ${ti>=0?`<div class="card" style="text-align:center;border:2px solid ${TEAM_COLS[ti]}">
+    <div style="font-size:.7rem;color:var(--muted);font-weight:700;margin-bottom:.25rem">You're in</div>
+    <div style="font-size:1.4rem;font-weight:900;color:${TEAM_COLS[ti]}">${h(tm?.name||'Team '+(ti+1))}</div>
+  </div>`:'<p class="muted">Waiting to be assigned...</p>'}
+</div>`;
+}
+
+function rFBPlaying(){
+  const g=FB.game||{};const ts=g.turnState||{};
+  const active=ts.active;
+  const bowl=g.bowl||{};const bowlCount=Object.keys(bowl).length;
+  const round=g.round||1;const teamIdx=g.currentTeamIdx;
+  const word=active&&ts.currentWordId?bowl[ts.currentWordId]?.word||'???':'';
+  const sec=active?Math.max(0,Math.ceil(((ts.timerEnd||0)-Date.now())/1000)):g.timerSecs||60;
+  const gotCount=Object.keys(ts.gotIds||{}).length;
+  if(!active){
+    return `<div class="screen">
+    <div class="badge">${FB_ROUND_NAMES[round-1]}</div>
+    <div style="text-align:center;font-weight:900;font-size:1.1rem;color:${TEAM_COLS[teamIdx]}">Your team's turn!</div>
+    <div style="font-size:3rem;text-align:center">🎭</div>
+    <p class="muted">You're the describer. Ready?</p>
+    <div class="card" style="text-align:center">
+      <div style="font-size:.68rem;color:var(--muted);margin-bottom:.2rem">Words in the bowl</div>
+      <div style="font-size:2.5rem;font-weight:900;color:var(--gold)">${bowlCount}</div>
+    </div>
+    <button class="btn" style="background:${TEAM_COLS[teamIdx]};color:#fff;font-size:1.1rem;max-width:500px" onclick="fbStartTurn()">▶ Start Turn!</button>
+    </div>`;
+  }
+  return `<div class="screen" style="padding:.75rem 1rem;gap:.6rem">
+  <div style="display:flex;align-items:center;justify-content:space-between;width:100%;max-width:500px">
+    <div class="badge">${FB_ROUND_NAMES[round-1]}</div>
+    <div style="font-size:3.5rem;font-weight:900;line-height:1;font-variant-numeric:tabular-nums" id="fb-timer">${sec}</div>
+    <div style="text-align:right;font-size:.72rem;color:var(--muted)">✓ ${gotCount} got<br>🎲 ${bowlCount} left</div>
+  </div>
+  <div style="background:rgba(232,160,255,.1);border:2px solid rgba(232,160,255,.3);border-radius:18px;padding:1.5rem 1rem;text-align:center;width:100%;max-width:500px;flex:1;display:flex;align-items:center;justify-content:center;min-height:140px">
+    <div style="font-size:clamp(1.5rem,7vw,2.8rem);font-weight:900;color:#f0f0f0;line-height:1.2;word-break:break-word">${h(word)}</div>
+  </div>
+  <button onclick="fbGotWord()" style="width:100%;max-width:500px;background:#0f9b58;color:#fff;border:none;border-radius:14px;padding:1.1rem;font-family:'Nunito',sans-serif;font-size:1.2rem;font-weight:900;cursor:pointer;-webkit-tap-highlight-color:transparent">✓ Got it!</button>
+  <button onclick="fbSkipWord()" style="width:100%;max-width:500px;background:rgba(233,69,96,.15);color:#ff8fa3;border:1px solid rgba(233,69,96,.3);border-radius:10px;padding:.65rem;font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:800;cursor:pointer">↩ Skip</button>
+</div>`;
+}
+
+function rFBGuessing(){
+  const g=FB.game||{};const ts=g.turnState||{};
+  const active=ts.active;const round=g.round||1;
+  const teamIdx=g.currentTeamIdx;const tm=g.teams?.[teamIdx]||{};
+  const descName=g.players?.[fbActivePid()]?.name||'?';
+  const bowlCount=Object.keys(g.bowl||{}).length;
+  const sec=active?Math.max(0,Math.ceil(((ts.timerEnd||0)-Date.now())/1000)):0;
+  return `<div class="screen">
+  <div class="badge">${FB_ROUND_NAMES[round-1]}</div>
+  <div style="text-align:center;font-weight:900;font-size:1.1rem;color:${TEAM_COLS[teamIdx]}">${h(tm.name)} is playing!</div>
+  ${active?`<div style="font-size:4.5rem;font-weight:900;text-align:center;font-variant-numeric:tabular-nums;line-height:1" id="fb-timer">${sec}</div>`:``}
+  <div style="font-size:3.5rem;text-align:center">👀</div>
+  <div style="text-align:center;font-weight:800;font-size:1rem">${h(descName)} is describing!</div>
+  <p class="muted">Watch them — not your phone! Just listen and shout answers.</p>
+  <div class="card" style="text-align:center">
+    <div style="font-size:.68rem;color:var(--muted);margin-bottom:.2rem">Words left in bowl</div>
+    <div style="font-size:2rem;font-weight:900;color:var(--gold)">${bowlCount}</div>
+  </div>
+</div>`;
+}
+
+function rFBWatching(){
+  const g=FB.game||{};const ts=g.turnState||{};
+  const active=ts.active;const round=g.round||1;
+  const teamIdx=g.currentTeamIdx;const tm=g.teams?.[teamIdx]||{};
+  const descName=g.players?.[fbActivePid()]?.name||'?';
+  const nt=g.numTeams||2;
+  const bowlCount=Object.keys(g.bowl||{}).length;
+  const sec=active?Math.max(0,Math.ceil(((ts.timerEnd||0)-Date.now())/1000)):0;
+  return `<div class="screen">
+  <div class="badge">${FB_ROUND_NAMES[round-1]} · Round ${round}/3</div>
+  <div style="text-align:center;font-weight:900;font-size:1.1rem;color:${TEAM_COLS[teamIdx]}">${h(tm.name)} is playing</div>
+  <div style="text-align:center;color:var(--muted);font-size:.85rem">${h(descName)} is ${round===3?'acting':'describing'}</div>
+  ${active?`<div style="font-size:4.5rem;font-weight:900;text-align:center;font-variant-numeric:tabular-nums;line-height:1;color:#4cc9f0" id="fb-timer">${sec}</div>`
+    :`<div style="font-size:2rem;text-align:center;color:var(--muted)">⏸ Between turns</div>`}
+  <div class="card w500">
+    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem">Round ${round} Scores</div>
+    ${Array.from({length:nt},(_,t)=>{const tmt=g.teams?.[t]||{};return `<div class="sc-score-row"><span style="font-weight:800;color:${TEAM_COLS[t]}">${h(tmt.name)}${t===teamIdx?' ▶':''}</span><span class="sc-pts">${tmt.scores?.[round]||0}</span></div>`;}).join('')}
+  </div>
+  <div style="font-size:.8rem;color:var(--muted);text-align:center">🎲 ${bowlCount} words left in bowl</div>
+</div>`;
+}
+
+function rFBRoundEnd(){
+  const g=FB.game||{};const round=g.round||1;const nt=g.numTeams||2;
+  const totals=Array.from({length:nt},(_,t)=>[1,2,3].reduce((a,r)=>a+(g.teams?.[t]?.scores?.[r]||0),0));
+  const maxT=Math.max(...totals);
+  return `<div class="screen">
+  <div class="badge">Round ${round} Complete</div>
+  <div style="font-size:2rem;text-align:center">${FB_ROUND_NAMES[round-1].split(' ')[0]}</div>
+  <h2 style="font-weight:900;font-size:1.3rem;text-align:center">Scores after Round ${round}</h2>
+  <div class="card w500">
+    ${Array.from({length:nt},(_,t)=>{const tm=g.teams?.[t]||{};const isLead=totals[t]===maxT;
+    return `<div class="sc-score-row">
+      <div><span style="font-weight:800;color:${TEAM_COLS[t]}">${h(tm.name)}${isLead?'<span class="crwn">👑</span>':''}</span>
+      <div style="font-size:.7rem;color:var(--muted)">This round: ${tm.scores?.[round]||0} · Total: ${totals[t]}</div></div>
+      <div class="sc-pts">${totals[t]}</div>
+    </div>`;}).join('')}
+  </div>
+  ${round<3?`<p class="muted">Next: ${FB_ROUND_NAMES[round]}</p>`:''}
+  ${FB.isHost&&round<3?`<button class="btn" style="background:linear-gradient(135deg,#9b59b6,#e94560);color:#fff" onclick="fbNextRound()">Round ${round+1}: ${FB_ROUND_NAMES[round]} →</button>`
+    :FB.isHost?`<button class="btn btn-green" onclick="fbRef('status').set('finished')">See Final Results →</button>`
+    :`<p class="muted">⏳ Waiting for host...</p>`}
+</div>`;
+}
+
+function rFBFinished(){
+  const g=FB.game||{};const nt=g.numTeams||2;
+  const totals=Array.from({length:nt},(_,t)=>[1,2,3].reduce((a,r)=>a+(g.teams?.[t]?.scores?.[r]||0),0));
+  const maxT=Math.max(...totals);const wi=totals.indexOf(maxT);
+  const medals=['🥇','🥈','🥉','4️⃣'];
+  const sorted=[...totals].sort((a,b)=>b-a);
+  return `<div class="screen">
+  <h1 class="title" style="background:linear-gradient(135deg,#e8a0ff,#e94560);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Game Over!</h1>
+  <div style="text-align:center"><div style="font-size:4rem">🏆</div>
+    <div style="font-size:1.8rem;font-weight:900;color:${TEAM_COLS[wi]}">${h(g.teams?.[wi]?.name||'Team '+(wi+1))}</div>
+    <p class="muted">wins with ${maxT} points!</p>
+  </div>
+  <div class="card w500">
+    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem">Final Scores</div>
+    ${Array.from({length:nt},(_,t)=>{const tm=g.teams?.[t]||{};const rank=sorted.indexOf(totals[t]);
+    return `<div class="sc-score-row">
+      <div><span style="margin-right:.3rem">${medals[rank]||''}</span><span style="font-weight:800;color:${TEAM_COLS[t]}">${h(tm.name)}</span>
+      <div style="font-size:.68rem;color:var(--muted)">R1:${tm.scores?.[1]||0} · R2:${tm.scores?.[2]||0} · R3:${tm.scores?.[3]||0}</div></div>
+      <div class="sc-pts">${totals[t]}</div>
+    </div>`;}).join('')}
+  </div>
+  <button class="btn btn-ghost w500" onclick="goHub()">← Back to Games</button>
+</div>`;
+}
+
+// ═══════════════════════════════════════════════
+// NUMPAD HELPERS
+// ═══════════════════════════════════════════════
+function yNumpad(d){
+  if(d==='back') Y.numpadDraft=Y.numpadDraft.slice(0,-1);
+  else if(Y.numpadDraft.length<3) Y.numpadDraft+=d;
+  const el=document.getElementById('y-np-disp');
+  if(el) el.textContent=Y.numpadDraft||'—';
+}
+function yNumpadOk(pid,key){
+  const v=parseInt(Y.numpadDraft,10);
+  if(!isNaN(v)&&v>=0) ySetScore(pid,key,v);
+  else yClosePopup();
+}
+function fcNumpad(d){
+  if(d==='back') FC.popupDraft=FC.popupDraft.slice(0,-1);
+  else if(FC.popupDraft.length<3) FC.popupDraft+=d;
+  const el=document.getElementById('fc-np-disp');
+  if(el) el.textContent=FC.popupDraft||'—';
+}
+function fcNumpadOk(pid,roundIdx){
+  const v=parseInt(FC.popupDraft,10);
+  if(!isNaN(v)&&v>=0) fcSetScore(pid,roundIdx,v);
+  else fcClosePopup();
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+render();
 </script>
 </body>
 </html>
