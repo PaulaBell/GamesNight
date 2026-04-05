@@ -320,8 +320,10 @@ async function sCreate(){
   let code=rndCode();
   for(let i=0;i<5;i++){const sn=await db.ref('scattergories/'+code).once('value');if(!sn.exists())break;code=rndCode();}
   S.roomCode=code;
+  const extraPoints=window._sExtraPoints||false;
+  window._sExtraPoints=false;
   await db.ref('scattergories/'+code).set({
-    hostId:PID,status:'lobby',round:0,createdAt:Date.now(),
+    hostId:PID,status:'lobby',round:0,extraPoints,createdAt:Date.now(),
     players:{[PID]:{name,totalScore:0}}
   });
   sListen(); goScreen('s_lobby');
@@ -392,6 +394,9 @@ function sVote(catIdx,targetPid,vtype){
   sRef('votes/'+catIdx+'/'+PID+'/'+targetPid).set(vtype);
   render();
 }
+// Challenge all = mark everyone else as ok, just one as challenge
+function sChallenge(catIdx,targetPid){sVote(catIdx,targetPid,'challenge');}
+function sOk(catIdx,targetPid){sVote(catIdx,targetPid,'ok');}
 
 async function sNextCat(){
   const catIdx=S.game?.votingState?.catIdx||0;
@@ -400,24 +405,44 @@ async function sNextCat(){
   else{await sRef('votingState/catIdx').set(catIdx+1);}
 }
 
+function sCountLetterPts(answer, letter){
+  // Count how many words start with the round letter
+  const l=letter.toLowerCase();
+  const words=answer.trim().split(/\s+/);
+  return words.filter(w=>w[0]&&w[0].toLowerCase()===l).length||0;
+}
+
 async function sCalcScores(catIdx){
   const players=S.game?.players||{};
   const votes=S.game?.votes?.[catIdx]||{};
   const pids=Object.keys(players);
+  const extraPoints=S.game?.extraPoints||false;
+  const letter=S.game?.letter||'';
   const ans={};
   pids.forEach(pid=>{ans[pid]=(players[pid]?.answers?.[catIdx]||'').toLowerCase().trim();});
+  // Count duplicates
   const cnt={};
   pids.forEach(pid=>{if(ans[pid])cnt[ans[pid]]=(cnt[ans[pid]]||0)+1;});
   const upd={};
   pids.forEach(pid=>{
-    const a=ans[pid]; if(!a)return;
-    const votesOn=Object.values(votes).map(v=>v?.[pid]).filter(Boolean);
-    const accepts=votesOn.filter(v=>v==='accept'||v==='bonus').length;
-    const rejects=votesOn.filter(v=>v==='reject').length;
-    const bonuses=votesOn.filter(v=>v==='bonus').length;
-    const ok=votesOn.length===0||accepts>=rejects;
+    const a=ans[pid];if(!a)return;
+    // Duplicate = 0 pts automatically
+    if(cnt[a]>1){upd['players/'+pid+'/roundScore']=(players[pid]?.roundScore||0);return;}
+    // Unique answer — check challenges
+    const otherPids=pids.filter(p=>p!==pid);
+    const challenges=otherPids.filter(voter=>votes[voter]?.[pid]==='challenge').length;
+    const oks=otherPids.filter(voter=>votes[voter]?.[pid]==='ok').length;
+    let accepted=true;
+    if(challenges>0||oks>0){accepted=oks>challenges;}
     let pts=0;
-    if(ok){if(bonuses>0)pts=3;else if(cnt[a]>1)pts=1;else pts=2;}
+    if(accepted){
+      if(extraPoints){
+        // Count words starting with the letter
+        pts=sCountLetterPts(a,letter)||1; // at least 1 if accepted
+      } else {
+        pts=1;
+      }
+    }
     upd['players/'+pid+'/roundScore']=(players[pid]?.roundScore||0)+pts;
   });
   if(Object.keys(upd).length)await sRef().update(upd);
@@ -739,6 +764,17 @@ function rSSetup(){
   <h1 class="title title-s" style="font-size:2rem">🔤 Scattergories</h1>
   <div class="card" style="display:flex;flex-direction:column;gap:.75rem">
     <div><label>Your Name</label><input id="nameInput" placeholder="Enter your name" value="${h(STORED_NAME)}" autocomplete="off"/></div>
+    <div>
+      <label>Scoring Mode</label>
+      <div class="mode-sel">
+        <div class="mode-btn" id="s-std" onclick="document.getElementById('s-std').classList.add('active');document.getElementById('s-xp').classList.remove('active');window._sExtraPoints=false">
+          <div class="mi">1️⃣</div><div class="mt">Standard</div><div class="md">Unique answer = 1 pt</div>
+        </div>
+        <div class="mode-btn" id="s-xp" onclick="document.getElementById('s-xp').classList.add('active');document.getElementById('s-std').classList.remove('active');window._sExtraPoints=true">
+          <div class="mi">⭐</div><div class="mt">Extra Points</div><div class="md">Billy Bob = 2pts if letter is B</div>
+        </div>
+      </div>
+    </div>
     <button class="btn btn-red" onclick="sCreate()">Create Game</button>
     <div class="muted">— or join —</div>
     <div><label>Room Code</label>
@@ -759,7 +795,8 @@ function rSLobby(){
   <div class="card" style="text-align:center">
     <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.3rem">Room Code</div>
     <div class="code-box">${h(S.roomCode)}</div>
-    <button class="btn-ghost btn" onclick="sShare()" style="margin-top:.6rem;padding:.45rem;font-size:.78rem">📤 Share Code</button>
+    <div style="margin-top:.3rem;font-size:.7rem;color:var(--muted)">${S.game?.extraPoints?'⭐ Extra Points mode':'Standard scoring'}</div>
+    <button class="btn-ghost btn" onclick="sShare()" style="margin-top:.5rem;padding:.45rem;font-size:.78rem">📤 Share Code</button>
   </div>
   <div class="card">
     <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem">Players (${Object.values(ps).length})</div>
@@ -838,17 +875,24 @@ function rSVote(){
   const allVotes=S.game?.votes?.[catIdx]||{};
   const ans={};
   pids.forEach(pid=>{ans[pid]=(players[pid]?.answers?.[catIdx]||'').trim();});
+  // Detect duplicates (case insensitive)
   const cnt={};
   pids.forEach(pid=>{if(ans[pid])cnt[ans[pid].toLowerCase()]=(cnt[ans[pid].toLowerCase()]||0)+1;});
+
   return `<div class="screen">
   <div style="display:flex;align-items:center;justify-content:space-between;width:100%;max-width:500px">
-    <div class="badge">Round ${S.game?.round}</div>
-    <div style="font-size:.72rem;color:var(--muted);font-weight:700">${catIdx+1} / ${cats.length}</div>
+    <div class="badge">Round ${S.game?.round} of ${SC_ROUNDS}</div>
+    <div style="font-size:.72rem;color:var(--muted);font-weight:700">${catIdx+1} / ${cats.length} categories</div>
   </div>
-  <div class="card" style="text-align:center;padding:.8rem">
-    <div style="font-size:.62rem;color:var(--accent);font-weight:900;letter-spacing:.1em;text-transform:uppercase">Letter ${h(letter)}</div>
-    <div style="font-size:1.2rem;font-weight:900;margin-top:.2rem">${h(cat)}</div>
-    <div style="font-size:.65rem;color:var(--muted);margin-top:.25rem">✓ Accept &nbsp; ✗ Reject &nbsp; ⭐ Bonus +3pts</div>
+  <div class="card" style="text-align:center;padding:.85rem">
+    <div style="font-size:.62rem;color:var(--accent);font-weight:900;letter-spacing:.1em;text-transform:uppercase">Letter ${h(letter)} · ${h(cat)}</div>
+    <div style="font-size:.68rem;color:var(--muted);margin-top:.4rem">
+      Each player reads their answer aloud.<br>
+      ${S.game?.extraPoints
+        ?`<strong style="color:#f5a623">⭐ Extra Points mode — score = words starting with ${h(letter)}</strong><br>e.g. "Billy Bob" = 2pts if letter is ${h(letter)}`
+        :`<strong style="color:#f0f0f0">Duplicate = 0pts &nbsp;·&nbsp; Unique = 1pt</strong>`}<br>
+      Tap <span style="color:#ff8fa3">✗ Challenge</span> if you think it doesn't fit.
+    </div>
   </div>
   <div class="card" style="padding:.8rem">
     ${pids.map(pid=>{
@@ -856,20 +900,27 @@ function rSVote(){
       const isMe=pid===PID;
       const isDup=a&&cnt[a.toLowerCase()]>1;
       const myVote=S.localVotes[catIdx]?.[pid]||allVotes[PID]?.[pid];
+      // Count challenges on this answer from all voters
+      const challengeCount=pids.filter(voter=>voter!==pid&&(allVotes[voter]?.[pid]==='challenge'||(S.localVotes[catIdx]?.[pid]==='challenge'&&voter===PID))).length;
       return `<div class="vote-row">
         <div class="vote-left">
           <div class="vnm">${h(players[pid]?.name)}${isMe?' (you)':''}</div>
-          <div class="vans" style="color:${a?'#f0f0f0':'#555'}">${a?h(a):'<em style="color:#555;font-size:.8rem">—</em>'}${isDup&&a?`<span class="dup-tag">duplicate</span>`:''}</div>
+          <div class="vans" style="color:${!a?'#555':isDup?'#f5a623':'#f0f0f0'}">
+            ${a?h(a):'<em style="color:#555;font-size:.8rem">no answer</em>'}
+            ${isDup&&a?`<span class="dup-tag">🔁 duplicate — 0 pts</span>`:''}
+            ${!isDup&&a&&S.game?.extraPoints?`<span class="dup-tag" style="background:rgba(245,166,35,.15);color:#f5a623">${sCountLetterPts(a,S.game?.letter||'')||1} pt${(sCountLetterPts(a,S.game?.letter||'')||1)>1?'s':''}</span>`:''}
+            ${!isDup&&a&&challengeCount>0?`<span class="dup-tag" style="background:rgba(233,69,96,.2);color:#ff8fa3">⚡ ${challengeCount} challenge${challengeCount>1?'s':''}</span>`:''}
+          </div>
         </div>
-        ${!isMe&&a?`<div style="display:flex;gap:.32rem">
-          <button class="vbtn acc ${myVote==='accept'?'on':''}" onclick="sVote(${catIdx},'${pid}','accept')">✓</button>
-          <button class="vbtn rej ${myVote==='reject'?'on':''}" onclick="sVote(${catIdx},'${pid}','reject')">✗</button>
-          <button class="vbtn bon ${myVote==='bonus'?'on':''}" onclick="sVote(${catIdx},'${pid}','bonus')">⭐</button>
-        </div>`:`<div style="width:88px"></div>`}
+        ${!isMe&&a&&!isDup?`<div style="display:flex;gap:.32rem">
+          <button class="vbtn acc ${myVote==='ok'?'on':''}" onclick="sOk(${catIdx},'${pid}')">✓</button>
+          <button class="vbtn rej ${myVote==='challenge'?'on':''}" onclick="sChallenge(${catIdx},'${pid}')">✗</button>
+        </div>`:`<div style="width:60px"></div>`}
       </div>`;
     }).join('')}
   </div>
-  ${S.isHost?`<button class="btn btn-gold" onclick="sNextCat()">${catIdx+1>=cats.length?'Finish Voting →':'Next Category →'}</button>`:`<p class="muted">Vote then wait for host</p>`}
+  <div class="muted" style="font-size:.7rem;padding:0 .5rem">Duplicate answers are auto-detected. Challenge unique answers you think don't fit the category — majority rules, ties go against the challenger's favour.</div>
+  ${S.isHost?`<button class="btn btn-gold" onclick="sNextCat()">${catIdx+1>=cats.length?'Finish Round →':'Next Category →'}</button>`:`<p class="muted">Vote then wait for host</p>`}
 </div>`;
 }
 
