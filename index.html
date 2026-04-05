@@ -168,7 +168,7 @@ let A = { screen:'hub' }; // hub, y_setup, y_lobby, y_game, s_setup, s_lobby, s_
 // ─── YAHTZEE STATE ───
 let Y = {
   roomCode:null, playerName:'', isHost:false, isScorer:false,
-  mode:'own', game:null, popup:null, numpadDraft:''
+  mode:'own', game:null, popup:null, numpadDraft:'', addingPlayer:false
 };
 
 // ─── SCATTERGORIES STATE ───
@@ -450,7 +450,7 @@ function sShare(){
 // ═══════════════════════════════════════════════
 // NAVIGATION
 // ═══════════════════════════════════════════════
-function goHub(){stopListening();A.screen='hub';Y={roomCode:null,playerName:'',isHost:false,isScorer:false,mode:'own',game:null,popup:null};S={roomCode:null,playerName:'',isHost:false,game:null,submitted:false,timerInt:null,localVotes:{},localAnswers:{}};FC={roomCode:null,playerName:'',isHost:false,isScorer:false,mode:'own',game:null,popup:null,popupDraft:''};QK={roomCode:null,playerName:'',isHost:false,isScorer:false,mode:'own',game:null,popup:null,numpadDraft:''};if(FB.timerInt){clearInterval(FB.timerInt);FB.timerInt=null;}FB={roomCode:null,playerName:'',isHost:false,game:null,timerInt:null,localWords:{}};render();}
+function goHub(){stopListening();A.screen='hub';Y={roomCode:null,playerName:'',isHost:false,isScorer:false,mode:'own',game:null,popup:null};S={roomCode:null,playerName:'',isHost:false,game:null,submitted:false,timerInt:null,localVotes:{},localAnswers:{}};FC={roomCode:null,playerName:'',isHost:false,isScorer:false,mode:'own',game:null,popup:null,popupDraft:'',addingPlayer:false};QK={roomCode:null,playerName:'',isHost:false,isScorer:false,mode:'own',game:null,popup:null,numpadDraft:'',addingPlayer:false};if(FB.timerInt){clearInterval(FB.timerInt);FB.timerInt=null;}FB={roomCode:null,playerName:'',isHost:false,game:null,timerInt:null,localWords:{}};render();}
 function goScreen(s){A.screen=s;render();}
 
 // ═══════════════════════════════════════════════
@@ -579,23 +579,30 @@ function rYSetup(){
 
 function rYLobby(){
   const ps=Y.game?.players||{};
-  const pList=Object.values(ps);
-  const modeLabel=Y.mode==='central'?'Central Scorer':'Own Device';
+  const pEntries=Object.entries(ps);
+  const isCentral=Y.mode==='central';
   return `<div class="screen">
   <button class="back-btn w500" onclick="goHub()">← Games</button>
   <h1 class="title title-y" style="font-size:1.8rem">🎲 Yahtzee</h1>
-  <div class="card" style="text-align:center">
-    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.3rem">Room Code</div>
+  ${!isCentral?`<div class="card" style="text-align:center">
+    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.3rem">Room Code — share with players</div>
     <div class="code-box">${h(Y.roomCode)}</div>
-    <div style="margin-top:.4rem;font-size:.72rem;color:var(--muted)">Mode: ${modeLabel}</div>
-  </div>
+  </div>`:`<p class="muted">Central Scorer mode — add players below</p>`}
   <div class="card">
-    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem">Players (${pList.length})</div>
-    <div style="display:flex;flex-wrap:wrap">${pList.map(p=>`<div class="chip"><div class="dot"></div>${h(p.name)}</div>`).join('')}</div>
+    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem">Players (${pEntries.length})</div>
+    <div style="display:flex;flex-wrap:wrap">
+      ${pEntries.map(([pid,p])=>`<div class="chip"><div class="dot"></div>${h(p.name)}
+        ${Y.isHost&&isCentral&&pid!==PID?`<span onclick="yRemovePlayer('${pid}')" style="margin-left:.35rem;cursor:pointer;opacity:.55;font-size:.75rem">✕</span>`:''}
+      </div>`).join('')}
+    </div>
+    ${Y.isHost&&isCentral?
+      Y.addingPlayer
+        ?addPlayerRow('yAddPlayer()','Y.addingPlayer=false;render()')
+        :`<button onclick="Y.addingPlayer=true;render()" style="margin-top:.5rem;background:rgba(15,155,88,.15);border:1px dashed rgba(15,155,88,.4);color:#5eff9e;border-radius:8px;padding:.45rem .9rem;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:800;cursor:pointer;width:100%">+ Add Player</button>`
+      :''}
   </div>
   ${Y.isHost
-    ?`<button class="btn btn-green" onclick="yStartGame()">Start Game →</button>
-      <p class="muted">You're the host — press start when ready</p>`
+    ?`<button class="btn btn-green" onclick="yStartGame()">Start Game →</button>`
     :`<p class="muted">⏳ Waiting for host to start...</p>`}
   <div id="flash" class="flash" style="opacity:0"></div>
 </div>`;
@@ -638,11 +645,11 @@ function rYGame(){
     html+=`<tr class="${alt}"><td class="y-cat-td"><div class="y-cat-name">${h(cat.label)}</div><div class="y-cat-desc">${h(cat.desc)}</div></td>`;
     pids.forEach((pid,pi)=>{
       const sc=players[pid]?.scores||{};
-      const v=sc[cat.key];
+      const v=sc[cat.key]??null;
       const canEdit=yCanEdit(pid);
-      const cls=['cell-tap',canEdit?'can':'ro',v===null?'empty':v===0?'scratched':'scored'].join(' ');
+      const cls=['cell-tap',canEdit?'can':'ro',v==null?'empty':v===0?'scratched':'scored'].join(' ');
       html+=`<td class="y-score-td"><div class="${cls}" onclick="${canEdit?`yOpenPopup('${pid}','${cat.key}')`:''}">`;
-      html+=v===null?'—':v===0?'✕':v;
+      html+=v==null?'—':v===0?'✕':v;
       html+=`</div></td>`;
     });
     html+=`</tr>`;
@@ -924,7 +931,7 @@ const FC_ROUNDS = [
 // ═══════════════════════════════════════════════
 let FC = {
   roomCode:null,playerName:'',isHost:false,isScorer:false,
-  mode:'own',game:null,popup:null,popupDraft:''
+  mode:'own',game:null,popup:null,popupDraft:'',addingPlayer:false
 };
 
 function fcEmptyRounds(){const r={};FC_ROUNDS.forEach((_,i)=>r[i]=null);return r;}
@@ -1035,20 +1042,30 @@ function rFCSetup(){
 
 function rFCLobby(){
   const ps=FC.game?.players||{};
+  const pEntries=Object.entries(ps);
+  const isCentral=FC.mode==='central';
   return `<div class="screen">
   <button class="back-btn w500" onclick="goHub()">← Games</button>
   <h1 class="title w500" style="font-size:1.8rem;background:linear-gradient(135deg,#c8a4ff,#4cc9f0);-webkit-background-clip:text;-webkit-text-fill-color:transparent">🃏 5 Crowns</h1>
-  <div class="card" style="text-align:center">
-    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.3rem">Room Code</div>
+  ${!isCentral?`<div class="card" style="text-align:center">
+    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.3rem">Room Code — share with players</div>
     <div class="code-box">${h(FC.roomCode)}</div>
-    <div style="margin-top:.4rem;font-size:.72rem;color:var(--muted)">Mode: ${FC.mode==='central'?'Central Scorer':'Own Device'}</div>
-  </div>
+  </div>`:`<p class="muted">Central Scorer mode — add players below</p>`}
   <div class="card">
-    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem">Players (${Object.values(ps).length})</div>
-    <div style="display:flex;flex-wrap:wrap">${Object.values(ps).map(p=>`<div class="chip"><div class="dot"></div>${h(p.name)}</div>`).join('')}</div>
+    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem">Players (${pEntries.length})</div>
+    <div style="display:flex;flex-wrap:wrap">
+      ${pEntries.map(([pid,p])=>`<div class="chip"><div class="dot"></div>${h(p.name)}
+        ${FC.isHost&&isCentral&&pid!==PID?`<span onclick="fcRemovePlayer('${pid}')" style="margin-left:.35rem;cursor:pointer;opacity:.55;font-size:.75rem">✕</span>`:''}
+      </div>`).join('')}
+    </div>
+    ${FC.isHost&&isCentral?
+      FC.addingPlayer
+        ?addPlayerRow('fcAddPlayer()','FC.addingPlayer=false;render()')
+        :`<button onclick="FC.addingPlayer=true;render()" style="margin-top:.5rem;background:rgba(76,201,240,.12);border:1px dashed rgba(76,201,240,.3);color:#4cc9f0;border-radius:8px;padding:.45rem .9rem;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:800;cursor:pointer;width:100%">+ Add Player</button>`
+      :''}
   </div>
   ${FC.isHost
-    ?`<button class="btn btn-green" onclick="fcStartGame()">Start Game →</button><p class="muted">You're the host</p>`
+    ?`<button class="btn btn-green" onclick="fcStartGame()">Start Game →</button>`
     :`<p class="muted">⏳ Waiting for host to start...</p>`}
   <div id="flash" class="flash" style="opacity:0"></div>
 </div>`;
@@ -1088,7 +1105,7 @@ function rFCGame(){
     pids.forEach(pid=>{
       const v=players[pid]?.rounds?.[ri]??null;
       const canEdit=fcCanEdit(pid);
-      const isEmpty=v===null;
+      const isEmpty=v==null;
       html+=`<td class="y-score-td"><div class="cell-tap ${canEdit?'can':'ro'} ${isEmpty?'empty':'scored'}"
         onclick="${canEdit?`fcOpenPopup('${pid}',${ri})`:''}">
         ${isEmpty?'—':v}
@@ -1145,7 +1162,7 @@ function rFCGame(){
 // ═══════════════════════════════════════════════
 let QK = {
   roomCode:null,playerName:'',isHost:false,isScorer:false,
-  mode:'own',game:null,popup:null,numpadDraft:''
+  mode:'own',game:null,popup:null,numpadDraft:'',addingPlayer:false
 };
 
 function qkTotal(turns){return Object.values(turns||{}).reduce((a,v)=>a+(v||0),0);}
@@ -1284,20 +1301,30 @@ function rQKSetup(){
 
 function rQKLobby(){
   const ps=QK.game?.players||{};
+  const pEntries=Object.entries(ps);
+  const isCentral=QK.mode==='central';
   return `<div class="screen">
   <button class="back-btn w500" onclick="goHub()">← Games</button>
   <h1 class="title w500" style="font-size:1.8rem;background:linear-gradient(135deg,#4cc9f0,#0f9b58);-webkit-background-clip:text;-webkit-text-fill-color:transparent">🎯 Qwirkle</h1>
-  <div class="card" style="text-align:center">
-    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.3rem">Room Code</div>
+  ${!isCentral?`<div class="card" style="text-align:center">
+    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.3rem">Room Code — share with players</div>
     <div class="code-box">${h(QK.roomCode)}</div>
-    <div style="margin-top:.4rem;font-size:.72rem;color:var(--muted)">Mode: ${QK.mode==='central'?'Central Scorer':'Own Device'}</div>
-  </div>
+  </div>`:`<p class="muted">Central Scorer mode — add players below</p>`}
   <div class="card">
-    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem">Players (${Object.values(ps).length})</div>
-    <div style="display:flex;flex-wrap:wrap">${Object.values(ps).map(p=>`<div class="chip"><div class="dot"></div>${h(p.name)}</div>`).join('')}</div>
+    <div style="font-size:.65rem;color:var(--muted);font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem">Players (${pEntries.length})</div>
+    <div style="display:flex;flex-wrap:wrap">
+      ${pEntries.map(([pid,p])=>`<div class="chip"><div class="dot"></div>${h(p.name)}
+        ${QK.isHost&&isCentral&&pid!==PID?`<span onclick="qkRemovePlayer('${pid}')" style="margin-left:.35rem;cursor:pointer;opacity:.55;font-size:.75rem">✕</span>`:''}
+      </div>`).join('')}
+    </div>
+    ${QK.isHost&&isCentral?
+      QK.addingPlayer
+        ?addPlayerRow('qkAddPlayer()','QK.addingPlayer=false;render()')
+        :`<button onclick="QK.addingPlayer=true;render()" style="margin-top:.5rem;background:rgba(76,201,240,.12);border:1px dashed rgba(76,201,240,.3);color:#4cc9f0;border-radius:8px;padding:.45rem .9rem;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:800;cursor:pointer;width:100%">+ Add Player</button>`
+      :''}
   </div>
   ${QK.isHost
-    ?`<button class="btn btn-green" onclick="qkStartGame()">Start Game →</button><p class="muted">You're the host</p>`
+    ?`<button class="btn btn-green" onclick="qkStartGame()">Start Game →</button>`
     :`<p class="muted">⏳ Waiting for host to start...</p>`}
   <div id="flash" class="flash" style="opacity:0"></div>
 </div>`;
@@ -1837,6 +1864,58 @@ function rFBFinished(){
   </div>
   <button class="btn btn-ghost w500" onclick="goHub()">← Back to Games</button>
 </div>`;
+}
+
+
+// ═══════════════════════════════════════════════
+// MANUAL PLAYER MANAGEMENT (central scorer mode)
+// ═══════════════════════════════════════════════
+function manualPid(){return 'm_'+Math.random().toString(36).substr(2,6);}
+
+async function yAddPlayer(){
+  const name=val('new-player-name').trim();
+  if(!name){flash('Enter a name!');return;}
+  const pid=manualPid();
+  await db.ref('yahtzee/'+Y.roomCode+'/players/'+pid).set({name,scores:yEmptyScores(),manual:true});
+  Y.addingPlayer=false;render();
+}
+async function yRemovePlayer(pid){
+  if(pid===PID)return;
+  await db.ref('yahtzee/'+Y.roomCode+'/players/'+pid).remove();
+}
+
+async function fcAddPlayer(){
+  const name=val('new-player-name').trim();
+  if(!name){flash('Enter a name!');return;}
+  const pid=manualPid();
+  await db.ref('fivecrowns/'+FC.roomCode+'/players/'+pid).set({name,rounds:fcEmptyRounds(),manual:true});
+  FC.addingPlayer=false;render();
+}
+async function fcRemovePlayer(pid){
+  if(pid===PID)return;
+  await db.ref('fivecrowns/'+FC.roomCode+'/players/'+pid).remove();
+}
+
+async function qkAddPlayer(){
+  const name=val('new-player-name').trim();
+  if(!name){flash('Enter a name!');return;}
+  const pid=manualPid();
+  await db.ref('qwirkle/'+QK.roomCode+'/players/'+pid).set({name,turns:{},manual:true});
+  QK.addingPlayer=false;render();
+}
+async function qkRemovePlayer(pid){
+  if(pid===PID)return;
+  await db.ref('qwirkle/'+QK.roomCode+'/players/'+pid).remove();
+}
+
+function addPlayerRow(onAdd, onCancel){
+  return `<div style="display:flex;gap:.4rem;margin-top:.5rem;align-items:center">
+    <input id="new-player-name" placeholder="Player name..." autocomplete="off"
+      style="flex:1;padding:.55rem .8rem;font-size:.88rem"
+      onkeydown="if(event.key==='Enter')${onAdd}"/>
+    <button onclick="${onAdd}" style="background:var(--green);color:#fff;border:none;border-radius:8px;padding:.55rem .9rem;font-family:'Nunito',sans-serif;font-weight:800;cursor:pointer;font-size:.85rem;flex-shrink:0">Add</button>
+    <button onclick="${onCancel}" style="background:rgba(255,255,255,.08);color:var(--muted);border:none;border-radius:8px;padding:.55rem .7rem;font-family:'Nunito',sans-serif;font-weight:800;cursor:pointer;flex-shrink:0">✕</button>
+  </div>`;
 }
 
 // ═══════════════════════════════════════════════
